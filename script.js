@@ -1199,29 +1199,14 @@ bookingForm.addEventListener(
         };
 
 
-        const {
-            data,
-            error
-        } =
-            await supabaseClient
-                .from("bookings")
-                .insert(
-                    bookingData
-                )
-                .select(`
-                    id,
-                    customer_name,
-                    customer_phone,
-                    booking_date,
-                    start_time,
-                    end_time,
-                    duration_minutes,
-                    price,
-                    booking_type,
-                    weekly_end_date,
-                    status
-                `)
-                .single();
+const {
+    error
+} =
+    await supabaseClient
+        .from("bookings")
+        .insert(
+            bookingData
+        );
 
 
         if(error){
@@ -1257,9 +1242,9 @@ bookingForm.addEventListener(
             إرسال رسالة واتساب للمالك.
         */
 
-        sendWhatsApp(
-            data
-        );
+        sendWhatsApp({
+    ...bookingData
+});
 
 
         /*
