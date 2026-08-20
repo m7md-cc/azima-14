@@ -1,0 +1,344 @@
+Enter<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#07111f">
+
+    <title>ملعب العزيمة 14 | حجز الملعب</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <div class="brand-ball">
+            ⚽
+        </div>
+
+        <div>
+            <strong>ملعب العزيمة 14</strong>
+            <small>احجز موعدك بسهولة</small>
+        </div>
+
+    </div>
+
+    <a href="admin.html" class="admin-link">
+        لوحة المالك
+    </a>
+
+</header>
+
+
+<main>
+
+<section class="hero">
+
+    <div class="hero-content">
+
+        <span class="eyebrow">
+            ⚽ ملعب كرة قدم
+        </span>
+
+        <h1>
+            ملعب العزيمة
+            <span>14</span>
+        </h1>
+
+        <p>
+            اختار اليوم والموعد المناسب ليك،
+            وشوف المواعيد المتاحة قبل الحجز.
+        </p>
+
+        <div class="hero-info">
+
+            <span>
+                🕔 5:00 م - 1:00 ص
+            </span>
+
+            <span>
+                💵 يبدأ من 70 جنيه
+            </span>
+
+            <span>
+                📱 حجز سهل من الموبايل
+            </span>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="booking-card">
+
+    <div class="section-title">
+
+        <div>
+
+            <span class="eyebrow">
+                الحجز
+            </span>
+
+            <h2>
+                اختار موعدك
+            </h2>
+
+        </div>
+
+
+        <div class="legend">
+
+            <span>
+                <i class="dot available"></i>
+                متاح
+            </span>
+
+            <span>
+                <i class="dot booked"></i>
+                محجوز
+            </span>
+
+            <span>
+                <i class="dot closed"></i>
+                غير متاح
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <div class="form-grid">
+
+        <label>
+
+            <span>
+                تاريخ الحجز
+            </span>
+
+            <input
+                id="bookingDate"
+                type="date"
+            >
+
+        </label>
+
+
+        <label>
+
+            <span>
+                مدة الحجز
+            </span>
+
+            <select id="duration">
+
+                <option value="60">
+                    ساعة واحدة
+                </option>
+
+                <option value="90">
+                    ساعة ونصف
+                </option>
+
+                <option value="120">
+                    ساعتان
+                </option>
+
+            </select>
+
+        </label>
+
+
+        <label class="full">
+
+            <span>
+                نوع الحجز
+            </span>
+
+
+            <div class="choice-row">
+
+                <label class="choice active">
+
+                    <input
+                        type="radio"
+                        name="bookingType"
+                        value="single"
+                        checked
+                    >
+
+                    <span>
+                        حجز لمرة واحدة
+                    </span>
+
+                </label>
+
+
+                <label class="choice">
+
+                    <input
+                        type="radio"
+                        name="bookingType"
+                        value="weekly"
+                    >
+
+                    <span>
+                        حجز أسبوعي متكرر
+                    </span>
+
+                </label>
+
+            </div>
+
+        </label>
+
+
+        <div
+            id="weeklyOptions"
+            class="weekly-options full hidden"
+        >
+
+            <label>
+
+                <span>
+                    ينتهي الحجز في
+                </span>
+
+                <input
+                    id="weeklyEndDate"
+                    type="date"
+                >
+
+            </label>
+
+            <p>
+                سيتم تكرار الحجز في نفس اليوم من كل أسبوع
+                حتى التاريخ المحدد.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="slots-header">
+
+        <h3>
+            المواعيد
+        </h3>
+
+        <span id="selectedDateLabel"></span>
+
+    </div>
+
+
+    <div
+        id="slots"
+        class="slots"
+    ></div>
+
+
+    <div
+        id="selectedSummary"
+        class="summary hidden"
+    ></div>
+
+
+    <form
+        id="bookingForm"
+        class="customer-form hidden"
+    >
+
+        <h3>
+            بيانات الحجز
+        </h3>
+
+
+        <div class="form-grid">
+
+            <label>
+
+                <span>
+                    الاسم
+                </span>
+
+                <input
+                    id="customerName"
+                    type="text"
+                    maxlength="80"
+                    placeholder="اكتب اسمك"
+                    required
+                >
+
+            </label>
+
+
+            <label>
+
+                <span>
+                    رقم الموبايل
+                </span>
+
+                <input
+                    id="customerPhone"
+                    type="tel"
+                    inputmode="tel"
+                    maxlength="20"
+                    placeholder="01xxxxxxxxx"
+                    required
+                >
+
+            </label>
+
+        </div>
+
+
+        <div class="payment-note">
+
+            💵 الدفع يدوي للمالك عند الاتفاق على الحجز.
+
+        </div>
+
+
+        <button
+            class="primary-btn"
+            type="submit"
+        >
+            تأكيد طلب الحجز
+        </button>
+
+    </form>
+
+
+    <div
+        id="message"
+        class="message hidden"
+    ></div>
+
+</section>
+
+</main>
+
+
+<footer>
+
+    <p>
+        © <span id="year"></span>
+        ملعب العزيمة 14
+    </p>
+
+</footer>
+
+
+<script src="script.js"></script>
+
+</body>
+                          </html>
