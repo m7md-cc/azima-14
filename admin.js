@@ -1803,7 +1803,7 @@ function getMonthRange(){
 
 
 // ============================================================
-// EXPAND BOOKINGS FOR REPORT
+// EXPAND BOOKINGS FOR REPORT - FIX DUPLICATES
 // ============================================================
 
 function getReportBookings(
@@ -1813,32 +1813,48 @@ function getReportBookings(
 
     const result = [];
 
+    // منع تكرار نفس الحجز في نفس التاريخ
+    const seen = new Set();
+
 
     bookings.forEach(
         booking => {
 
-            // الحجوزات الملغاة لا تدخل في الإيراد
+            // الحجوزات الملغاة لا تدخل التقرير
             if(
-                booking.status ===
-                "cancelled"
+                booking.status === "cancelled"
             ){
-
                 return;
-
             }
 
 
-            // ================= SINGLE =================
+            // ====================================================
+            // SINGLE BOOKING
+            // ====================================================
 
             if(
-                booking.booking_type !==
-                "weekly"
+                booking.booking_type !== "weekly"
             ){
 
                 if(
                     booking.booking_date >= startDate &&
                     booking.booking_date <= endDate
                 ){
+
+                    const uniqueKey =
+                        `${booking.id}_${booking.booking_date}`;
+
+
+                    // منع التكرار
+                    if(
+                        seen.has(uniqueKey)
+                    ){
+                        return;
+                    }
+
+
+                    seen.add(uniqueKey);
+
 
                     result.push({
 
@@ -1856,33 +1872,90 @@ function getReportBookings(
             }
 
 
-            // ================= WEEKLY =================
+            // ====================================================
+            // WEEKLY BOOKING
+            // ====================================================
 
             let current =
                 booking.booking_date;
 
 
+            /*
+                لو تاريخ بداية الحجز الأسبوعي
+                بعد نهاية التقرير، لا يوجد شيء نعرضه.
+            */
+
+            if(
+                current > endDate
+            ){
+                return;
+            }
+
+
+            /*
+                نتحرك أسبوعًا بأسبوع فقط.
+                يعني:
+                السبت
+                السبت التالي
+                السبت التالي...
+            */
+
             while(
                 current <= endDate
             ){
 
-                if(
+                /*
+                    لازم يكون التاريخ داخل الفترة المطلوبة
+                    ولا يتجاوز تاريخ نهاية الحجز الأسبوعي.
+                */
+
+                const insideRange =
                     current >= startDate &&
-                    (
-                        !booking.weekly_end_date ||
-                        current <=
-                        booking.weekly_end_date
-                    )
+                    current <= endDate;
+
+
+                const insideWeeklyEnd =
+                    !booking.weekly_end_date ||
+                    current <=
+                    booking.weekly_end_date;
+
+
+                if(
+                    insideRange &&
+                    insideWeeklyEnd
                 ){
 
-                    result.push({
+                    /*
+                        المفتاح يعتمد على:
+                        ID الحجز + تاريخ التكرار
 
-                        ...booking,
+                        وبالتالي مستحيل نفس الموعد
+                        يظهر مرتين في نفس التقرير.
+                    */
 
-                        reportDate:
-                            current
+                    const uniqueKey =
+                        `${booking.id}_${current}`;
 
-                    });
+
+                    if(
+                        !seen.has(uniqueKey)
+                    ){
+
+                        seen.add(
+                            uniqueKey
+                        );
+
+
+                        result.push({
+
+                            ...booking,
+
+                            reportDate:
+                                current
+
+                        });
+
+                    }
 
                 }
 
@@ -1899,16 +1972,26 @@ function getReportBookings(
     );
 
 
+    // ============================================================
+    // SORT
+    // ============================================================
+
     result.sort(
         (a, b) => {
 
             const first =
                 a.reportDate +
-                a.start_time;
+                String(
+                    a.start_time || ""
+                );
+
 
             const second =
                 b.reportDate +
-                b.start_time;
+                String(
+                    b.start_time || ""
+                );
+
 
             return first.localeCompare(
                 second
