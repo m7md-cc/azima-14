@@ -1020,16 +1020,26 @@ renderSlots();
 
 
 supabaseClient
-    .from("settings")
-    .select("id, day_price, night_price")
-    .eq("id", 1)
-    .single()
+    .from("bookings")
+    .select(`
+        id,
+        booking_date,
+        start_time,
+        end_time,
+        duration_minutes,
+        status,
+        booking_type,
+        weekly_end_date
+    `)
+    .order("booking_date", {
+        ascending: true
+    })
     .then(({ data, error }) => {
 
         if (error) {
 
             alert(
-                "خطأ في Supabase:\n" +
+                "خطأ في قراءة الحجوزات:\n" +
                 error.message
             );
 
@@ -1037,12 +1047,9 @@ supabaseClient
         }
 
         alert(
-            "تم الاتصال بـ Supabase بنجاح ✅\n\n" +
-            "سعر النهار: " +
-            data.day_price +
-            "\n" +
-            "سعر الليل: " +
-            data.night_price
+            "تم الاتصال بجدول الحجوزات بنجاح ✅\n" +
+            "عدد الحجوزات: " +
+            data.length
         );
 
     });
