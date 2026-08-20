@@ -1017,3 +1017,26 @@ bookingForm.addEventListener(
 
 
 renderSlots();
+
+
+supabaseClient
+    .from("settings")
+    .select("id,day_price,night_price")
+    .eq("id", 1)
+    .single()
+    .then(({ data, error }) => {
+
+        if (error) {
+            console.error(
+                "Supabase Error:",
+                error
+            );
+            return;
+        }
+
+        console.log(
+            "Supabase Connected:",
+            data
+        );
+
+    });
