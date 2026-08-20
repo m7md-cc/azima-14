@@ -1,44 +1,63 @@
-hereconst STORAGE_KEY =
-    "alazima14_bookings_v1";
-
-const SETTINGS_KEY =
-    "alazima14_settings_v1";
-
-const AUTH_KEY =
-    "alazima14_admin_auth_v1";
+// ============================================================
+// AL AZIMA 14 - ADMIN DASHBOARD
+// Supabase Auth + Supabase Database
+// ============================================================
 
 
-const ADMIN_PIN =
-    "1414";
+// ================= SUPABASE =================
 
+const SUPABASE_URL =
+    "https://yoflvktmovseppukqdio.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_L9U9B8viS8bD85N1kmUm5g_qM5YpQ3a";
+
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+
+// ================= ADMIN UID =================
+
+const ADMIN_UID =
+    "43cc0f62-8855-4567-bd73-ac7a553ce53b";
+
+
+// ================= DEFAULT SETTINGS =================
 
 const defaultSettings = {
 
-    dayPrice:70,
+    dayPrice: 70,
 
-    nightPrice:80,
+    nightPrice: 80,
 
-    nightStart:"19:30",
+    nightStart: "19:30",
 
-    open:"17:00",
+    open: "17:00",
 
-    close:"01:00",
+    close: "01:00",
 
-    ownerOne:"201116733739",
+    ownerOne: "201116733739",
 
-    ownerTwo:""
+    ownerTwo: ""
 
 };
 
 
-let settings =
-    loadSettings();
+let settings = {
+    ...defaultSettings
+};
 
 
-let bookings =
-    loadBookings();
+// ================= STATE =================
+
+let bookings = [];
 
 
+// ================= ELEMENTS =================
 
 const loginPanel =
     document.getElementById(
@@ -52,136 +71,87 @@ const dashboard =
     );
 
 
-document.getElementById(
-    "year"
-).textContent =
-    new Date().getFullYear();
+const loginBtn =
+    document.getElementById(
+        "loginBtn"
+    );
 
+
+const logoutBtn =
+    document.getElementById(
+        "logoutBtn"
+    );
+
+
+// ================= YEAR =================
+
+const year =
+    document.getElementById(
+        "year"
+    );
+
+if(year){
+
+    year.textContent =
+        new Date().getFullYear();
+
+}
+
+
+// ============================================================
+// HELPERS
+// ============================================================
 
 
 function pad(n){
 
     return String(n)
-        .padStart(2,"0");
+        .padStart(2, "0");
 
 }
-
 
 
 function localISODate(
     d = new Date()
 ){
 
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    return `${d.getFullYear()}-${pad(
+        d.getMonth() + 1
+    )}-${pad(
+        d.getDate()
+    )}`;
 
 }
-
-
-
-function loadSettings(){
-
-    try{
-
-        return {
-
-            ...defaultSettings,
-
-            ...JSON.parse(
-                localStorage.getItem(
-                    SETTINGS_KEY
-                ) || "{}"
-            )
-
-        };
-
-    }
-
-    catch{
-
-        return {
-            ...defaultSettings
-        };
-
-    }
-
-}
-
-
-
-function loadBookings(){
-
-    try{
-
-        const data =
-            JSON.parse(
-                localStorage.getItem(
-                    STORAGE_KEY
-                )
-            );
-
-
-        return Array.isArray(data)
-            ? data
-            : [];
-
-    }
-
-    catch{
-
-        return [];
-
-    }
-
-}
-
-
-
-function saveBookings(){
-
-    localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(
-            bookings
-        )
-    );
-
-}
-
-
-
-function saveSettings(){
-
-    localStorage.setItem(
-        SETTINGS_KEY,
-        JSON.stringify(
-            settings
-        )
-    );
-
-}
-
 
 
 function timeToMinutes(time){
+
+    if(!time)
+        return 0;
+
 
     const [
         h,
         m
     ] =
-        time
+        String(time)
+        .substring(0, 5)
         .split(":")
         .map(Number);
 
 
-    return h * 60 + m;
+    return (
+        (h || 0) * 60 +
+        (m || 0)
+    );
 
 }
 
 
-
 function minutesToTime(minutes){
 
-    minutes %= 1440;
+    minutes =
+        ((minutes % 1440) + 1440) % 1440;
 
 
     const h =
@@ -196,10 +166,10 @@ function minutesToTime(minutes){
 
     const suffix =
         h < 12
-        ?
-        "ص"
-        :
-        "م";
+            ?
+            "ص"
+            :
+            "م";
 
 
     const hh =
@@ -211,25 +181,27 @@ function minutesToTime(minutes){
 }
 
 
-
 function dateLabel(value){
+
+    if(!value)
+        return "";
+
 
     return new Intl.DateTimeFormat(
         "ar-EG",
         {
-            weekday:"long",
-            day:"numeric",
-            month:"long"
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
         }
     ).format(
         new Date(
-            value +
-            "T12:00:00"
+            value + "T12:00:00"
         )
     );
 
 }
-
 
 
 function endTime(
@@ -238,19 +210,16 @@ function endTime(
 ){
 
     let result =
-        timeToMinutes(start)
-        +
-        duration;
+        timeToMinutes(start) +
+        Number(duration);
 
 
-    if(result >= 1440)
-        result -= 1440;
+    result =
+        result % 1440;
 
 
     return `${pad(
-        Math.floor(
-            result / 60
-        )
+        Math.floor(result / 60)
     )}:${pad(
         result % 60
     )}`;
@@ -258,72 +227,15 @@ function endTime(
 }
 
 
+function normalize(minutes){
 
-function makeSlots(){
-
-    const slots = [];
-
-
-    for(
-        let m =
-            timeToMinutes(
-                settings.open
-            );
-
-        m < 1440;
-
-        m += 60
-    ){
-
-        slots.push(
-            `${pad(
-                Math.floor(m/60)
-            )}:${pad(
-                m%60
-            )}`
-        );
-
-    }
-
-
-    for(
-        let m = 0;
-
-        m <
-        timeToMinutes(
-            settings.close
-        );
-
-        m += 60
-    ){
-
-        slots.push(
-            `${pad(
-                Math.floor(m/60)
-            )}:${pad(
-                m%60
-            )}`
-        );
-
-    }
-
-
-    return slots;
-
-}
-
-
-
-function normalize(x){
-
-    return x < 300
+    return minutes < 300
         ?
-        x + 1440
+        minutes + 1440
         :
-        x;
+        minutes;
 
 }
-
 
 
 function overlap(
@@ -335,33 +247,25 @@ function overlap(
 
     let aS =
         normalize(
-            timeToMinutes(
-                aStart
-            )
+            timeToMinutes(aStart)
         );
 
 
     let aE =
         normalize(
-            timeToMinutes(
-                aEnd
-            )
+            timeToMinutes(aEnd)
         );
 
 
     let bS =
         normalize(
-            timeToMinutes(
-                bStart
-            )
+            timeToMinutes(bStart)
         );
 
 
     let bE =
         normalize(
-            timeToMinutes(
-                bEnd
-            )
+            timeToMinutes(bEnd)
         );
 
 
@@ -381,6 +285,65 @@ function overlap(
 }
 
 
+function makeSlots(){
+
+    const slots = [];
+
+
+    const open =
+        timeToMinutes(
+            settings.open
+        );
+
+
+    const close =
+        timeToMinutes(
+            settings.close
+        );
+
+
+    for(
+        let m = open;
+
+        m < 1440;
+
+        m += 60
+    ){
+
+        slots.push(
+            `${pad(
+                Math.floor(m / 60)
+            )}:${pad(
+                m % 60
+            )}`
+        );
+
+    }
+
+
+    for(
+        let m = 0;
+
+        m < close;
+
+        m += 60
+    ){
+
+        slots.push(
+            `${pad(
+                Math.floor(m / 60)
+            )}:${pad(
+                m % 60
+            )}`
+        );
+
+    }
+
+
+    return slots;
+
+}
+
 
 function affects(
     booking,
@@ -388,19 +351,22 @@ function affects(
 ){
 
     if(
-        booking.date === date
-    )
+        booking.booking_date === date
+    ){
+
         return true;
+
+    }
 
 
     if(
-        booking.type === "weekly" &&
-        booking.date < date
+        booking.booking_type === "weekly" &&
+        booking.booking_date < date
     ){
 
         const start =
             new Date(
-                booking.date +
+                booking.booking_date +
                 "T12:00:00"
             );
 
@@ -412,24 +378,27 @@ function affects(
             );
 
 
-        const diff =
+        const difference =
             Math.round(
-                (target-start)
-                /
+                (
+                    target -
+                    start
+                ) /
                 86400000
             );
 
 
         return (
 
-            diff > 0 &&
+            difference > 0 &&
 
-            diff % 7 === 0 &&
+            difference % 7 === 0 &&
 
             (
-                !booking.endDate ||
+                !booking.weekly_end_date ||
+
                 date <=
-                booking.endDate
+                booking.weekly_end_date
             )
 
         );
@@ -442,42 +411,671 @@ function affects(
 }
 
 
+// ============================================================
+// MESSAGE
+// ============================================================
 
 function show(
     id,
     text,
-    error=false
+    error = false
 ){
 
     const element =
         document.getElementById(id);
 
 
+    if(!element)
+        return;
+
+
     element.textContent =
         text;
 
 
-    element.classList
-        .remove(
-            "hidden",
+    element.classList.remove(
+        "hidden",
+        "error"
+    );
+
+
+    if(error){
+
+        element.classList.add(
             "error"
         );
 
-
-    if(error)
-        element.classList
-            .add("error");
+    }
 
 }
 
 
+// ============================================================
+// AUTH
+// ============================================================
 
-function render(){
+
+async function checkSession(){
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .auth
+            .getSession();
+
+
+    if(error){
+
+        console.error(
+            error
+        );
+
+        return false;
+
+    }
+
+
+    const session =
+        data.session;
+
+
+    if(!session){
+
+        showLogin();
+
+        return false;
+
+    }
+
+
+    if(
+        session.user.id !==
+        ADMIN_UID
+    ){
+
+        await supabaseClient
+            .auth
+            .signOut();
+
+
+        showLogin();
+
+
+        show(
+            "loginMessage",
+            "هذا الحساب ليس حساب المالك.",
+            true
+        );
+
+
+        return false;
+
+    }
+
+
+    showDashboard();
+
+    return true;
+
+}
+
+
+function showLogin(){
+
+    loginPanel
+        .classList
+        .remove("hidden");
+
+
+    dashboard
+        .classList
+        .add("hidden");
+
+}
+
+
+function showDashboard(){
+
+    loginPanel
+        .classList
+        .add("hidden");
+
+
+    dashboard
+        .classList
+        .remove("hidden");
+
+}
+
+
+async function login(){
+
+    const email =
+        document
+            .getElementById(
+                "adminEmail"
+            )
+            .value
+            .trim();
+
+
+    const password =
+        document
+            .getElementById(
+                "adminPassword"
+            )
+            .value;
+
+
+    if(!email){
+
+        show(
+            "loginMessage",
+            "اكتب البريد الإلكتروني.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if(!password){
+
+        show(
+            "loginMessage",
+            "اكتب كلمة المرور.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    show(
+        "loginMessage",
+        "جاري تسجيل الدخول..."
+    );
+
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .auth
+            .signInWithPassword({
+                email,
+                password
+            });
+
+
+    if(error){
+
+        console.error(
+            error
+        );
+
+
+        show(
+            "loginMessage",
+            "فشل تسجيل الدخول: " +
+            error.message,
+            true
+        );
+
+
+        return;
+
+    }
+
+
+    if(
+        !data.user ||
+        data.user.id !== ADMIN_UID
+    ){
+
+        await supabaseClient
+            .auth
+            .signOut();
+
+
+        show(
+            "loginMessage",
+            "هذا الحساب ليس حساب المالك.",
+            true
+        );
+
+
+        return;
+
+    }
+
+
+    showDashboard();
+
+
+    await initDashboard();
+
+}
+
+
+async function logout(){
+
+    await supabaseClient
+        .auth
+        .signOut();
+
+
+    location.reload();
+
+}
+
+
+loginBtn.addEventListener(
+    "click",
+    login
+);
+
+
+logoutBtn.addEventListener(
+    "click",
+    logout
+);
+
+
+document
+    .getElementById(
+        "adminPassword"
+    )
+    .addEventListener(
+        "keydown",
+        event => {
+
+            if(
+                event.key === "Enter"
+            ){
+
+                login();
+
+            }
+
+        }
+    );
+
+
+// ============================================================
+// SETTINGS
+// ============================================================
+
+
+async function loadSettings(){
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .from("settings")
+            .select(`
+                id,
+                day_price,
+                night_price,
+                night_start,
+                opening_time,
+                closing_time,
+                owner_one_phone,
+                owner_two_phone
+            `)
+            .eq("id", 1)
+            .maybeSingle();
+
+
+    if(error){
+
+        console.error(
+            "Settings error:",
+            error
+        );
+
+
+        show(
+            "settingsMessage",
+            "تعذر تحميل الإعدادات: " +
+            error.message,
+            true
+        );
+
+
+        return false;
+
+    }
+
+
+    if(data){
+
+        settings.dayPrice =
+            Number(
+                data.day_price
+            );
+
+
+        settings.nightPrice =
+            Number(
+                data.night_price
+            );
+
+
+        settings.nightStart =
+            String(
+                data.night_start
+            ).substring(0, 5);
+
+
+        settings.open =
+            String(
+                data.opening_time
+            ).substring(0, 5);
+
+
+        settings.close =
+            String(
+                data.closing_time
+            ).substring(0, 5);
+
+
+        settings.ownerOne =
+            data.owner_one_phone ||
+            "";
+
+
+        settings.ownerTwo =
+            data.owner_two_phone ||
+            "";
+
+    }
+
+
+    return true;
+
+}
+
+
+async function saveSettings(){
+
+    const dayPrice =
+        Number(
+            document
+                .getElementById(
+                    "dayPrice"
+                )
+                .value
+        );
+
+
+    const nightPrice =
+        Number(
+            document
+                .getElementById(
+                    "nightPrice"
+                )
+                .value
+        );
+
+
+    if(
+        Number.isNaN(dayPrice) ||
+        Number.isNaN(nightPrice)
+    ){
+
+        show(
+            "settingsMessage",
+            "اكتب أسعار صحيحة.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    const {
+        error
+    } =
+        await supabaseClient
+            .from("settings")
+            .update({
+                day_price:
+                    dayPrice,
+
+                night_price:
+                    nightPrice
+            })
+            .eq("id", 1);
+
+
+    if(error){
+
+        console.error(
+            error
+        );
+
+
+        show(
+            "settingsMessage",
+            "حدث خطأ أثناء حفظ الأسعار: " +
+            error.message,
+            true
+        );
+
+
+        return;
+
+    }
+
+
+    settings.dayPrice =
+        dayPrice;
+
+
+    settings.nightPrice =
+        nightPrice;
+
+
+    show(
+        "settingsMessage",
+        "تم حفظ الأسعار بنجاح ✅"
+    );
+
+
+    await render();
+
+}
+
+
+async function saveOwners(){
+
+    const ownerOne =
+        document
+            .getElementById(
+                "ownerOne"
+            )
+            .value
+            .trim();
+
+
+    const ownerTwo =
+        document
+            .getElementById(
+                "ownerTwo"
+            )
+            .value
+            .trim();
+
+
+    const {
+        error
+    } =
+        await supabaseClient
+            .from("settings")
+            .update({
+                owner_one_phone:
+                    ownerOne,
+
+                owner_two_phone:
+                    ownerTwo
+            })
+            .eq("id", 1);
+
+
+    if(error){
+
+        console.error(
+            error
+        );
+
+
+        show(
+            "ownersMessage",
+            "حدث خطأ أثناء حفظ الأرقام: " +
+            error.message,
+            true
+        );
+
+
+        return;
+
+    }
+
+
+    settings.ownerOne =
+        ownerOne;
+
+
+    settings.ownerTwo =
+        ownerTwo;
+
+
+    show(
+        "ownersMessage",
+        "تم حفظ أرقام المالكين بنجاح ✅"
+    );
+
+}
+
+
+document
+    .getElementById(
+        "saveSettingsBtn"
+    )
+    .addEventListener(
+        "click",
+        saveSettings
+    );
+
+
+document
+    .getElementById(
+        "saveOwnersBtn"
+    )
+    .addEventListener(
+        "click",
+        saveOwners
+    );
+
+
+// ============================================================
+// BOOKINGS
+// ============================================================
+
+
+async function loadBookings(){
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .from("bookings")
+            .select(`
+                id,
+                customer_name,
+                customer_phone,
+                booking_date,
+                start_time,
+                end_time,
+                duration_minutes,
+                price,
+                booking_type,
+                weekly_end_date,
+                status,
+                created_at,
+                updated_at
+            `)
+            .order(
+                "booking_date",
+                {
+                    ascending: true
+                }
+            )
+            .order(
+                "start_time",
+                {
+                    ascending: true
+                }
+            );
+
+
+    if(error){
+
+        console.error(
+            "Bookings error:",
+            error
+        );
+
+
+        show(
+            "bookingList",
+            "تعذر تحميل الحجوزات: " +
+            error.message,
+            true
+        );
+
+
+        return false;
+
+    }
+
+
+    bookings =
+        Array.isArray(data)
+            ?
+            data
+            :
+            [];
+
+
+    return true;
+
+}
+
+
+// ============================================================
+// RENDER
+// ============================================================
+
+
+async function render(){
 
     const date =
-        document.getElementById(
-            "adminDate"
-        ).value;
+        document
+            .getElementById(
+                "adminDate"
+            )
+            .value;
 
 
     const active =
@@ -492,9 +1090,12 @@ function render(){
         localISODate();
 
 
-    document.getElementById(
-        "todayCount"
-    ).textContent =
+    document
+        .getElementById(
+            "todayCount"
+        )
+        .textContent =
+
         active.filter(
             booking =>
                 affects(
@@ -504,24 +1105,31 @@ function render(){
         ).length;
 
 
-    document.getElementById(
-        "upcomingCount"
-    ).textContent =
+    document
+        .getElementById(
+            "upcomingCount"
+        )
+        .textContent =
+
         active.filter(
             booking =>
-                booking.date >= today
+                booking.booking_date >=
+                today
         ).length;
 
 
-    document.getElementById(
-        "revenue"
-    ).textContent =
+    document
+        .getElementById(
+            "revenue"
+        )
+        .textContent =
 
         active.reduce(
             (
                 total,
                 booking
             ) =>
+
                 total +
                 Number(
                     booking.price ||
@@ -529,11 +1137,11 @@ function render(){
                 ),
 
             0
-        )
-        +
-        " ج";
+
+        ) + " ج";
 
 
+    // ================= SLOTS =================
 
     const dayBookings =
         active.filter(
@@ -545,15 +1153,14 @@ function render(){
         );
 
 
-
     const slots =
         document.getElementById(
             "adminSlots"
         );
 
 
-    slots.innerHTML = "";
-
+    slots.innerHTML =
+        "";
 
 
     makeSlots().forEach(
@@ -568,8 +1175,8 @@ function render(){
                                 start,
                                 60
                             ),
-                            booking.start,
-                            booking.end
+                            booking.start_time,
+                            booking.end_time
                         )
                 );
 
@@ -584,10 +1191,10 @@ function render(){
                 "slot " +
                 (
                     found
-                    ?
-                    "booked"
-                    :
-                    "available"
+                        ?
+                        "booked"
+                        :
+                        "available"
                 );
 
 
@@ -614,14 +1221,15 @@ function render(){
 
                 </strong>
 
-
                 <small>
 
                     ${
                         found
                         ?
                         "🔴 " +
-                        found.name
+                        escapeHTML(
+                            found.customer_name
+                        )
                         :
                         "🟢 متاح"
                     }
@@ -639,6 +1247,7 @@ function render(){
     );
 
 
+    // ================= BOOKING LIST =================
 
     const list =
         document.getElementById(
@@ -646,8 +1255,8 @@ function render(){
         );
 
 
-    list.innerHTML = "";
-
+    list.innerHTML =
+        "";
 
 
     if(!bookings.length){
@@ -660,19 +1269,26 @@ function render(){
     }
 
 
-
     bookings
         .slice()
         .sort(
-            (a,b) =>
-                (
-                    a.date +
-                    a.start
-                )
-                .localeCompare(
-                    b.date +
-                    b.start
-                )
+            (a, b) => {
+
+                const first =
+                    a.booking_date +
+                    a.start_time;
+
+
+                const second =
+                    b.booking_date +
+                    b.start_time;
+
+
+                return first.localeCompare(
+                    second
+                );
+
+            }
         )
         .forEach(
             booking => {
@@ -687,14 +1303,46 @@ function render(){
                     "booking-item";
 
 
+                const statusText =
+                    booking.status ===
+                    "pending"
+
+                        ?
+                        "في انتظار التأكيد"
+
+                        :
+
+                        booking.status ===
+                        "confirmed"
+
+                            ?
+                            "مؤكد"
+
+                            :
+                            "ملغي";
+
+
+                const typeText =
+                    booking.booking_type ===
+                    "weekly"
+
+                        ?
+                        "🔄 حجز أسبوعي"
+
+                        :
+                        "حجز لمرة واحدة";
+
+
                 item.innerHTML = `
 
                     <strong>
 
-                        ${booking.name}
+                        ${escapeHTML(
+                            booking.customer_name
+                        )}
 
                         ${
-                            booking.type ===
+                            booking.booking_type ===
                             "weekly"
                             ?
                             " 🔄"
@@ -709,7 +1357,7 @@ function render(){
 
                         📅
                         ${dateLabel(
-                            booking.date
+                            booking.booking_date
                         )}
 
                         <br>
@@ -717,7 +1365,7 @@ function render(){
                         ⏰
                         ${minutesToTime(
                             timeToMinutes(
-                                booking.start
+                                booking.start_time
                             )
                         )}
 
@@ -725,46 +1373,74 @@ function render(){
 
                         ${minutesToTime(
                             timeToMinutes(
-                                booking.end
+                                booking.end_time
                             )
                         )}
 
                         <br>
 
-                        📱
+                        ⏱️
                         ${
-                            booking.phone ||
-                            "غير مضاف"
+                            Number(
+                                booking.duration_minutes
+                            ) === 60
+                            ?
+                            "ساعة"
+                            :
+                            Number(
+                                booking.duration_minutes
+                            ) === 90
+                            ?
+                            "ساعة ونصف"
+                            :
+                            "ساعتان"
                         }
 
-                        ·
+                        <br>
+
+                        📱
+                        ${escapeHTML(
+                            booking.customer_phone
+                        )}
+
+                        <br>
 
                         💰
-                        ${booking.price}
+                        ${Number(
+                            booking.price || 0
+                        )}
                         جنيه
+
+                        <br>
+
+                        📌
+                        ${typeText}
+
+                        ${
+                            booking.booking_type ===
+                            "weekly"
+
+                            ?
+
+                            `
+                            <br>
+
+                            🗓️ حتى:
+                            ${dateLabel(
+                                booking.weekly_end_date
+                            )}
+                            `
+
+                            :
+
+                            ""
+                        }
 
                         <br>
 
                         الحالة:
 
-                        ${
-                            booking.status ===
-                            "pending"
-
-                            ?
-                            "في انتظار التأكيد"
-
-                            :
-
-                            booking.status ===
-                            "confirmed"
-
-                            ?
-                            "مؤكد"
-
-                            :
-                            "ملغي"
-                        }
+                        ${statusText}
 
                     </small>
 
@@ -810,6 +1486,14 @@ function render(){
                             ""
                         }
 
+
+                        <button
+                            data-action="delete"
+                            class="danger-btn"
+                        >
+                            حذف
+                        </button>
+
                     </div>
 
                 `;
@@ -824,12 +1508,12 @@ function render(){
 
                             button.addEventListener(
                                 "click",
-                                () => {
+                                async () => {
 
                                     const action =
                                         button
-                                        .dataset
-                                        .action;
+                                            .dataset
+                                            .action;
 
 
                                     if(
@@ -837,8 +1521,10 @@ function render(){
                                         "confirm"
                                     ){
 
-                                        booking.status =
-                                            "confirmed";
+                                        await updateBookingStatus(
+                                            booking.id,
+                                            "confirmed"
+                                        );
 
                                     }
 
@@ -848,15 +1534,24 @@ function render(){
                                         "cancel"
                                     ){
 
-                                        booking.status =
-                                            "cancelled";
+                                        await updateBookingStatus(
+                                            booking.id,
+                                            "cancelled"
+                                        );
 
                                     }
 
 
-                                    saveBookings();
+                                    if(
+                                        action ===
+                                        "delete"
+                                    ){
 
-                                    render();
+                                        await deleteBooking(
+                                            booking
+                                        );
+
+                                    }
 
                                 }
                             );
@@ -875,284 +1570,303 @@ function render(){
 }
 
 
-
-function login(){
-
-    const pin =
-        document
-        .getElementById(
-            "adminPin"
-        )
-        .value;
+// ============================================================
+// UPDATE BOOKING
+// ============================================================
 
 
-    if(
-        pin === ADMIN_PIN
-    ){
+async function updateBookingStatus(
+    id,
+    status
+){
 
-        sessionStorage.setItem(
-            AUTH_KEY,
-            "1"
-        );
-
-
-        loginPanel
-            .classList
-            .add(
-                "hidden"
+    const {
+        error
+    } =
+        await supabaseClient
+            .from("bookings")
+            .update({
+                status
+            })
+            .eq(
+                "id",
+                id
             );
 
 
-        dashboard
-            .classList
-            .remove(
-                "hidden"
-            );
+    if(error){
 
-
-        initDashboard();
-
-    }
-
-    else{
-
-        show(
-            "loginMessage",
-            "رمز الدخول غير صحيح.",
-            true
+        alert(
+            "حدث خطأ:\n" +
+            error.message
         );
 
+        return;
+
     }
+
+
+    await loadBookings();
+
+    await render();
 
 }
 
 
+// ============================================================
+// DELETE BOOKING
+// ============================================================
 
-function initDashboard(){
 
-    document.getElementById(
-        "adminDate"
-    ).value =
+async function deleteBooking(
+    booking
+){
+
+    const confirmDelete =
+        confirm(
+            `هل تريد حذف حجز ${booking.customer_name}؟`
+        );
+
+
+    if(!confirmDelete)
+        return;
+
+
+    const {
+        error
+    } =
+        await supabaseClient
+            .from("bookings")
+            .delete()
+            .eq(
+                "id",
+                booking.id
+            );
+
+
+    if(error){
+
+        alert(
+            "حدث خطأ أثناء الحذف:\n" +
+            error.message
+        );
+
+        return;
+
+    }
+
+
+    await loadBookings();
+
+    await render();
+
+}
+
+
+// ============================================================
+// DELETE TEST RECORD
+// ============================================================
+
+
+document
+    .getElementById(
+        "clearDemoBtn"
+    )
+    .addEventListener(
+        "click",
+        async () => {
+
+            const demo =
+                bookings.find(
+                    booking =>
+                        booking.customer_name ===
+                        "اختبار"
+                );
+
+
+            if(!demo){
+
+                alert(
+                    "لا يوجد سجل اختبار."
+                );
+
+                return;
+
+            }
+
+
+            const confirmDelete =
+                confirm(
+                    "هل تريد حذف سجل الاختبار فقط؟"
+                );
+
+
+            if(!confirmDelete)
+                return;
+
+
+            await deleteBooking(
+                demo
+            );
+
+        }
+    );
+
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
+
+function escapeHTML(value){
+
+    return String(
+        value ?? ""
+    )
+    .replace(
+        /&/g,
+        "&amp;"
+    )
+    .replace(
+        /</g,
+        "&lt;"
+    )
+    .replace(
+        />/g,
+        "&gt;"
+    )
+    .replace(
+        /"/g,
+        "&quot;"
+    )
+    .replace(
+        /'/g,
+        "&#039;"
+    );
+
+}
+
+
+// ============================================================
+// INIT
+// ============================================================
+
+
+async function initDashboard(){
+
+    document
+        .getElementById(
+            "adminDate"
+        )
+        .value =
         localISODate();
 
 
-    document.getElementById(
-        "dayPrice"
-    ).value =
+    const settingsLoaded =
+        await loadSettings();
+
+
+    if(!settingsLoaded)
+        return;
+
+
+    document
+        .getElementById(
+            "dayPrice"
+        )
+        .value =
         settings.dayPrice;
 
 
-    document.getElementById(
-        "nightPrice"
-    ).value =
+    document
+        .getElementById(
+            "nightPrice"
+        )
+        .value =
         settings.nightPrice;
 
 
-    document.getElementById(
-        "ownerOne"
-    ).value =
+    document
+        .getElementById(
+            "ownerOne"
+        )
+        .value =
         settings.ownerOne;
 
 
-    document.getElementById(
-        "ownerTwo"
-    ).value =
+    document
+        .getElementById(
+            "ownerTwo"
+        )
+        .value =
         settings.ownerTwo;
 
 
-    render();
+    const bookingsLoaded =
+        await loadBookings();
+
+
+    if(!bookingsLoaded)
+        return;
+
+
+    await render();
 
 }
 
 
+// ============================================================
+// DATE CHANGE
+// ============================================================
 
 document
-.getElementById(
-    "loginBtn"
-)
-.addEventListener(
-    "click",
-    login
-);
+    .getElementById(
+        "adminDate"
+    )
+    .addEventListener(
+        "change",
+        render
+    );
 
 
+// ============================================================
+// AUTH STATE
+// ============================================================
 
-document
-.getElementById(
-    "adminPin"
-)
-.addEventListener(
-    "keydown",
-    event => {
+supabaseClient
+    .auth
+    .onAuthStateChange(
+        async (
+            event,
+            session
+        ) => {
 
-        if(
-            event.key ===
-            "Enter"
-        )
-            login();
+            if(
+                session &&
+                session.user.id ===
+                ADMIN_UID
+            ){
 
-    }
-);
+                showDashboard();
 
-
-
-document
-.getElementById(
-    "logoutBtn"
-)
-.addEventListener(
-    "click",
-    () => {
-
-        sessionStorage.removeItem(
-            AUTH_KEY
-        );
-
-        location.reload();
-
-    }
-);
-
-
-
-document
-.getElementById(
-    "adminDate"
-)
-.addEventListener(
-    "change",
-    render
-);
-
-
-
-document
-.getElementById(
-    "saveSettingsBtn"
-)
-.addEventListener(
-    "click",
-    () => {
-
-        settings.dayPrice =
-            Number(
-                document
-                .getElementById(
-                    "dayPrice"
-                )
-                .value
-            ) || 0;
-
-
-        settings.nightPrice =
-            Number(
-                document
-                .getElementById(
-                    "nightPrice"
-                )
-                .value
-            ) || 0;
-
-
-        saveSettings();
-
-
-        show(
-            "settingsMessage",
-            "تم حفظ الأسعار بنجاح ✅"
-        );
-
-    }
-);
-
-
-
-document
-.getElementById(
-    "saveOwnersBtn"
-)
-.addEventListener(
-    "click",
-    () => {
-
-        settings.ownerOne =
-            document
-            .getElementById(
-                "ownerOne"
-            )
-            .value
-            .trim();
-
-
-        settings.ownerTwo =
-            document
-            .getElementById(
-                "ownerTwo"
-            )
-            .value
-            .trim();
-
-
-        saveSettings();
-
-
-        show(
-            "settingsMessage",
-            "تم حفظ أرقام المالكين."
-        );
-
-    }
-);
-
-
-
-document
-.getElementById(
-    "clearDemoBtn"
-)
-.addEventListener(
-    "click",
-    () => {
-
-        if(
-            confirm(
-                "هل تريد مسح جميع الحجوزات؟"
-            )
-        ){
-
-            bookings = [];
-
-            saveBookings();
-
-            render();
+            }
 
         }
-
-    }
-);
+    );
 
 
+// ============================================================
+// START
+// ============================================================
 
-if(
-    sessionStorage.getItem(
-        AUTH_KEY
-    ) === "1"
-){
+checkSession()
+    .then(
+        loggedIn => {
 
-    loginPanel
-        .classList
-        .add(
-            "hidden"
-        );
+            if(loggedIn){
 
+                initDashboard();
 
-    dashboard
-        .classList
-        .remove(
-            "hidden"
-        );
+            }
 
-
-    initDashboard();
-
-}
+        }
+    );
