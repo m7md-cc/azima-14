@@ -126,18 +126,22 @@ function timeToMinutes(time){
     if(!time)
         return 0;
 
-    const [
-        h,
-        m
-    ] =
+    const value =
         String(time)
-        .substring(0, 5)
-        .split(":")
-        .map(Number);
+        .substring(0, 5);
+
+    const parts =
+        value.split(":");
+
+    const h =
+        Number(parts[0]) || 0;
+
+    const m =
+        Number(parts[1]) || 0;
 
     return (
-        (h || 0) * 60 +
-        (m || 0)
+        h * 60 +
+        m
     );
 
 }
@@ -176,7 +180,8 @@ function dateLabel(value){
 
     const d =
         new Date(
-            value + "T12:00:00"
+            value +
+            "T12:00:00"
         );
 
     return new Intl.DateTimeFormat(
@@ -192,23 +197,55 @@ function dateLabel(value){
 }
 
 
+// ================= TIME CALCULATIONS =================
+
 function endTime(
     start,
     duration
 ){
 
-    let result =
-        timeToMinutes(start) +
+    const startMinutes =
+        timeToMinutes(start);
+
+    const result =
+        startMinutes +
         Number(duration);
 
-    result =
-        result % 1440;
-
     return `${pad(
-        Math.floor(result / 60)
+        Math.floor(
+            (result % 1440) / 60
+        )
     )}:${pad(
         result % 60
     )}`;
+
+}
+
+
+// تحويل الوقت إلى خط زمني خاص بالملعب.
+//
+// الملعب يبدأ 17:00 وينتهي 01:00.
+// لذلك 00:30 تعتبر بعد 17:00 وليست قبلها.
+
+function timelineMinutes(time){
+
+    let minutes =
+        timeToMinutes(time);
+
+    const open =
+        timeToMinutes(
+            settings.open
+        );
+
+    if(
+        minutes < open
+    ){
+
+        minutes += 1440;
+
+    }
+
+    return minutes;
 
 }
 
@@ -253,10 +290,14 @@ async function loadSettings(){
         if(data){
 
             settings.dayPrice =
-                Number(data.day_price);
+                Number(
+                    data.day_price
+                );
 
             settings.nightPrice =
-                Number(data.night_price);
+                Number(
+                    data.night_price
+                );
 
             settings.nightStart =
                 String(
@@ -312,24 +353,57 @@ function priceFor(
             settings.nightStart
         );
 
-    /*
-        لو الحجز يبدأ قبل 7:30 م
-        يستخدم سعر النهار.
-
-        لو يبدأ من 7:30 م أو بعده
-        يستخدم سعر الليل.
-    */
-
     const hourly =
         startMinutes >= nightStart
             ?
-            Number(settings.nightPrice)
+            Number(
+                settings.nightPrice
+            )
             :
-            Number(settings.dayPrice);
-
+            Number(
+                settings.dayPrice
+            );
 
     return hourly *
-        (Number(duration) / 60);
+        (
+            Number(duration) /
+            60
+        );
+
+}
+
+
+// ================= OPERATING PERIOD =================
+
+function getOperatingPeriod(){
+
+    const open =
+        timeToMinutes(
+            settings.open
+        );
+
+    let close =
+        timeToMinutes(
+            settings.close
+        );
+
+
+    /*
+        لو الإغلاق بعد منتصف الليل
+        نضيف 24 ساعة.
+    */
+
+    if(close <= open){
+
+        close += 1440;
+
+    }
+
+
+    return {
+        open,
+        close
+    };
 
 }
 
@@ -340,54 +414,60 @@ function makeSlots(){
 
     const slots = [];
 
-    const open =
-        timeToMinutes(
-            settings.open
-        );
-
-    const close =
-        timeToMinutes(
-            settings.close
-        );
+    const {
+        open,
+        close
+    } =
+        getOperatingPeriod();
 
 
-    // المواعيد تبدأ كل 30 دقيقة
-    // بدل كل 60 دقيقة
+    const duration =
+        Number(
+            durationInput.value
+        ) || 60;
+
+
+    /*
+        البداية كل 30 دقيقة.
+
+        والأهم:
+        لا نضيف أي موعد لو مدة الحجز
+        ستتجاوز موعد إغلاق الملعب.
+    */
+
     for(
-        let m = open;
+        let minutes = open;
 
-        m < 1440;
+        minutes + duration <= close;
 
-        m += 30
+        minutes += 30
     ){
 
-        slots.push(
-            `${pad(
-                Math.floor(m / 60)
-            )}:${pad(
-                m % 60
-            )}`
-        );
-
-    }
+        const realMinutes =
+            minutes % 1440;
 
 
-    // المواعيد بعد منتصف الليل
-    for(
-        let m = 0;
+        slots.push({
 
-        m < close;
+            start:
+                `${pad(
+                    Math.floor(
+                        realMinutes / 60
+                    )
+                )}:${pad(
+                    realMinutes % 60
+                )}`,
 
-        m += 30
-    ){
+            end:
+                `${pad(
+                    Math.floor(
+                        (minutes + duration) % 1440 / 60
+                    )
+                )}:${pad(
+                    (minutes + duration) % 60
+                )}`
 
-        slots.push(
-            `${pad(
-                Math.floor(m / 60)
-            )}:${pad(
-                m % 60
-            )}`
-        );
+        });
 
     }
 
@@ -395,6 +475,7 @@ function makeSlots(){
     return slots;
 
 }
+
 
 // ================= OVERLAP =================
 
@@ -405,35 +486,31 @@ function rangesOverlap(
     bEnd
 ){
 
-    const normalize =
-        value => {
-
-            let minutes =
-                timeToMinutes(value);
-
-            if(minutes < 300){
-
-                minutes += 1440;
-
-            }
-
-            return minutes;
-
-        };
-
-
-    let aS =
-        normalize(aStart);
+    const aS =
+        timelineMinutes(
+            aStart
+        );
 
     let aE =
-        normalize(aEnd);
+        timelineMinutes(
+            aEnd
+        );
 
-    let bS =
-        normalize(bStart);
+
+    const bS =
+        timelineMinutes(
+            bStart
+        );
 
     let bE =
-        normalize(bEnd);
+        timelineMinutes(
+            bEnd
+        );
 
+
+    /*
+        لو النهاية وصلت لليوم التالي.
+    */
 
     if(aE <= aS){
 
@@ -448,6 +525,23 @@ function rangesOverlap(
 
     }
 
+
+    /*
+        مهم جدًا:
+
+        لو عندنا:
+
+        17:00 → 18:30
+
+        ونجرب:
+
+        18:30 → 19:30
+
+        النتيجة FALSE
+
+        لأن بداية الحجز الجديد
+        تساوي نهاية الحجز القديم.
+    */
 
     return (
         aS < bE &&
@@ -484,10 +578,12 @@ async function loadBookedSlots(date){
             error
         );
 
+
         showMessage(
             "حدث خطأ أثناء تحميل المواعيد. حاول مرة أخرى.",
             true
         );
+
 
         return false;
 
@@ -521,6 +617,16 @@ function isOccupied(
 
     return bookedSlots.some(
         booking => {
+
+            if(
+                !booking.start_time ||
+                !booking.end_time
+            ){
+
+                return false;
+
+            }
+
 
             return rangesOverlap(
                 start,
@@ -575,14 +681,22 @@ async function renderSlots(){
         null;
 
 
-    selectedSummary
-        .classList
-        .add("hidden");
+    if(selectedSummary){
+
+        selectedSummary
+            .classList
+            .add("hidden");
+
+    }
 
 
-    bookingForm
-        .classList
-        .add("hidden");
+    if(bookingForm){
+
+        bookingForm
+            .classList
+            .add("hidden");
+
+    }
 
 
     const date =
@@ -593,10 +707,18 @@ async function renderSlots(){
         return;
 
 
-    document.getElementById(
-        "selectedDateLabel"
-    ).textContent =
-        dateLabel(date);
+    const selectedDateLabel =
+        document.getElementById(
+            "selectedDateLabel"
+        );
+
+
+    if(selectedDateLabel){
+
+        selectedDateLabel.textContent =
+            dateLabel(date);
+
+    }
 
 
     slotsEl.innerHTML = `
@@ -633,19 +755,38 @@ async function renderSlots(){
         "";
 
 
-    const duration =
-        Number(
-            durationInput.value
-        );
+    const slots =
+        makeSlots();
 
 
-    makeSlots().forEach(
-        start => {
+    /*
+        لو مفيش أي مواعيد ممكنة
+    */
+
+    if(!slots.length){
+
+        slotsEl.innerHTML = `
+
+            <p class="muted">
+                لا توجد مواعيد متاحة بهذه المدة.
+            </p>
+
+        `;
+
+        return;
+
+    }
+
+
+    slots.forEach(
+        slot => {
 
             const occupied =
                 isOccupied(
-                    start,
-                    duration
+                    slot.start,
+                    Number(
+                        durationInput.value
+                    )
                 );
 
 
@@ -679,17 +820,16 @@ async function renderSlots(){
                 <strong>
 
                     ${minutesToTime(
-                        timeToMinutes(start)
+                        timeToMinutes(
+                            slot.start
+                        )
                     )}
 
                     -
 
                     ${minutesToTime(
                         timeToMinutes(
-                            endTime(
-                                start,
-                                duration
-                            )
+                            slot.end
                         )
                     )}
 
@@ -718,20 +858,23 @@ async function renderSlots(){
 
                         selectedSlot = {
 
-                            start,
+                            start:
+                                slot.start,
 
                             end:
-                                endTime(
-                                    start,
-                                    duration
-                                ),
+                                slot.end,
 
-                            duration,
+                            duration:
+                                Number(
+                                    durationInput.value
+                                ),
 
                             price:
                                 priceFor(
-                                    start,
-                                    duration
+                                    slot.start,
+                                    Number(
+                                        durationInput.value
+                                    )
                                 )
 
                         };
@@ -983,7 +1126,11 @@ dateInput.addEventListener(
 
 durationInput.addEventListener(
     "change",
-    renderSlots
+    () => {
+
+        renderSlots();
+
+    }
 );
 
 
@@ -1091,15 +1238,15 @@ bookingForm.addEventListener(
         }
 
 
-        /*
-            نعمل فحص جديد من Supabase
-            قبل تسجيل الحجز.
-        */
-
         showMessage(
             "جاري التأكد من توفر الموعد..."
         );
 
+
+        /*
+            إعادة تحميل الحجوزات من Supabase
+            قبل الحفظ.
+        */
 
         const freshCheck =
             await loadBookedSlots(
@@ -1114,6 +1261,10 @@ bookingForm.addEventListener(
         }
 
 
+        /*
+            فحص التداخل الحقيقي.
+        */
+
         if(
             isOccupied(
                 selectedSlot.start,
@@ -1126,6 +1277,7 @@ bookingForm.addEventListener(
                 true
             );
 
+
             await renderSlots();
 
             return;
@@ -1134,7 +1286,60 @@ bookingForm.addEventListener(
 
 
         /*
-            إعادة حساب السعر من الإعدادات
+            التأكد أن الموعد لا يتجاوز
+            وقت إغلاق الملعب.
+        */
+
+        const {
+            open,
+            close
+        } =
+            getOperatingPeriod();
+
+
+        const startTimeline =
+            timelineMinutes(
+                selectedSlot.start
+            );
+
+
+        let endTimeline =
+            timelineMinutes(
+                selectedSlot.end
+            );
+
+
+        if(
+            endTimeline <=
+            startTimeline
+        ){
+
+            endTimeline +=
+                1440;
+
+        }
+
+
+        if(
+            startTimeline < open ||
+            endTimeline > close
+        ){
+
+            showMessage(
+                "الموعد يتجاوز وقت إغلاق الملعب.",
+                true
+            );
+
+
+            await renderSlots();
+
+            return;
+
+        }
+
+
+        /*
+            إعادة حساب السعر.
         */
 
         const price =
@@ -1148,11 +1353,6 @@ bookingForm.addEventListener(
             "جاري تسجيل الحجز..."
         );
 
-
-        /*
-            تجهيز البيانات بنفس أسماء
-            أعمدة Supabase.
-        */
 
         const bookingData = {
 
@@ -1189,14 +1389,14 @@ bookingForm.addEventListener(
         };
 
 
-const {
-    error
-} =
-    await supabaseClient
-        .from("bookings")
-        .insert(
-            bookingData
-        );
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("bookings")
+                .insert(
+                    bookingData
+                );
 
 
         if(error){
@@ -1219,22 +1419,18 @@ const {
         }
 
 
-        /*
-            الحجز اتسجل بنجاح.
-        */
-
         showMessage(
             "تم تسجيل طلب الحجز بنجاح ✅ سيتم التواصل معك لتأكيد الموعد."
         );
 
 
         /*
-            إرسال رسالة واتساب للمالك.
+            إرسال واتساب للمالك.
         */
 
         sendWhatsApp({
-    ...bookingData
-});
+            ...bookingData
+        });
 
 
         /*
@@ -1273,6 +1469,12 @@ function sendWhatsApp(
         return;
 
 
+    /*
+        حاليًا الإرسال للمالك الأول.
+        لو عايز نرسل للاثنين لاحقًا
+        نقدر نفتح الرابطين.
+    */
+
     const owner =
         settings.ownerOne ||
         settings.ownerTwo ||
@@ -1289,10 +1491,6 @@ function sendWhatsApp(
 
     }
 
-
-    /*
-        إزالة أي رموز غير الأرقام
-    */
 
     const cleanOwner =
         String(owner)
@@ -1325,16 +1523,24 @@ function sendWhatsApp(
         Number(
             booking.duration_minutes
         ) === 60
-            ?
-            "ساعة"
-            :
-            Number(
-                booking.duration_minutes
-            ) === 90
-                ?
-                "ساعة ونصف"
-                :
-                "ساعتان";
+
+        ?
+
+        "ساعة"
+
+        :
+
+        Number(
+            booking.duration_minutes
+        ) === 90
+
+        ?
+
+        "ساعة ونصف"
+
+        :
+
+        "ساعتان";
 
 
     const message =
@@ -1369,11 +1575,15 @@ function sendWhatsApp(
 
         (
             booking.booking_type === "weekly"
+
             ?
+
             `\n🔄 ينتهي في: ${dateLabel(
                 booking.weekly_end_date
             )}`
+
             :
+
             ""
         ) +
 
@@ -1388,10 +1598,6 @@ function sendWhatsApp(
             message
         );
 
-
-    /*
-        فتح واتساب في تبويب جديد.
-    */
 
     window.open(
         url,
@@ -1415,11 +1621,6 @@ async function init(){
 
     await renderSlots();
 
-
-    /*
-        نخفي رسالة التحميل
-        بعد اكتمال البداية.
-    */
 
     if(
         messageEl &&
