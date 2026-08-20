@@ -1,0 +1,387 @@
+Enter<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<meta
+    name="theme-color"
+    content="#07111f"
+>
+
+<title>
+    لوحة المالك | ملعب العزيمة 14
+</title>
+
+<link
+    rel="stylesheet"
+    href="style.css"
+>
+
+</head>
+
+
+<body>
+
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <div class="brand-ball">
+            ⚽
+        </div>
+
+        <div>
+
+            <strong>
+                ملعب العزيمة 14
+            </strong>
+
+            <small>
+                لوحة المالك
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <a
+        class="admin-link"
+        href="index.html"
+    >
+        موقع الحجز
+    </a>
+
+</header>
+
+
+
+<main class="admin-main">
+
+
+<section
+    id="loginPanel"
+    class="panel login-panel"
+>
+
+    <span class="eyebrow">
+        إدارة الملعب
+    </span>
+
+
+    <h1>
+        دخول المالك
+    </h1>
+
+
+    <p>
+        أدخل رمز الدخول للوصول إلى لوحة التحكم.
+    </p>
+
+
+    <label>
+
+        <span>
+            رمز الدخول
+        </span>
+
+        <input
+            id="adminPin"
+            type="password"
+            inputmode="numeric"
+            placeholder="اكتب الرمز"
+        >
+
+    </label>
+
+
+    <button
+        id="loginBtn"
+        class="primary-btn"
+    >
+        دخول
+    </button>
+
+
+    <div
+        id="loginMessage"
+        class="message hidden"
+    ></div>
+
+</section>
+
+
+
+<section
+    id="dashboard"
+    class="hidden"
+>
+
+
+<div class="dashboard-head">
+
+    <div>
+
+        <span class="eyebrow">
+            لوحة التحكم
+        </span>
+
+        <h1>
+            إدارة الحجوزات
+        </h1>
+
+    </div>
+
+
+    <button
+        id="logoutBtn"
+        class="ghost-btn"
+    >
+        تسجيل الخروج
+    </button>
+
+</div>
+
+
+
+<div class="stats-grid">
+
+    <div class="stat">
+
+        <span>
+            حجوزات اليوم
+        </span>
+
+        <strong id="todayCount">
+            0
+        </strong>
+
+    </div>
+
+
+    <div class="stat">
+
+        <span>
+            الحجوزات القادمة
+        </span>
+
+        <strong id="upcomingCount">
+            0
+        </strong>
+
+    </div>
+
+
+    <div class="stat">
+
+        <span>
+            الإيراد المتوقع
+        </span>
+
+        <strong id="revenue">
+            0 ج
+        </strong>
+
+    </div>
+
+</div>
+
+
+
+<div class="admin-grid">
+
+
+<section class="panel">
+
+    <div class="panel-title">
+
+        <h2>
+            جدول المواعيد
+        </h2>
+
+        <input
+            id="adminDate"
+            type="date"
+        >
+
+    </div>
+
+
+    <div
+        id="adminSlots"
+        class="slots"
+    ></div>
+
+</section>
+
+
+
+<section class="panel">
+
+    <div class="panel-title">
+
+        <h2>
+            الحجوزات
+        </h2>
+
+        <button
+            id="clearDemoBtn"
+            class="danger-btn"
+        >
+            مسح البيانات
+        </button>
+
+    </div>
+
+
+    <div
+        id="bookingList"
+        class="booking-list"
+    ></div>
+
+</section>
+
+
+
+<section class="panel">
+
+    <div class="panel-title">
+
+        <h2>
+            إعدادات الأسعار
+        </h2>
+
+    </div>
+
+
+    <div class="form-grid">
+
+        <label>
+
+            <span>
+                قبل 7:30 م
+            </span>
+
+            <input
+                id="dayPrice"
+                type="number"
+                min="0"
+            >
+
+        </label>
+
+
+        <label>
+
+            <span>
+                من 7:30 م
+            </span>
+
+            <input
+                id="nightPrice"
+                type="number"
+                min="0"
+            >
+
+        </label>
+
+    </div>
+
+
+    <button
+        id="saveSettingsBtn"
+        class="primary-btn"
+    >
+        حفظ الأسعار
+    </button>
+
+
+    <div
+        id="settingsMessage"
+        class="message hidden"
+    ></div>
+
+</section>
+
+
+
+<section class="panel">
+
+    <div class="panel-title">
+
+        <h2>
+            واتساب المالكين
+        </h2>
+
+    </div>
+
+
+    <label>
+
+        <span>
+            ك/ أحمد حسني
+        </span>
+
+        <input
+            id="ownerOne"
+            type="tel"
+        >
+
+    </label>
+
+
+    <label>
+
+        <span>
+            ك/ محمد الديباوي
+        </span>
+
+        <input
+            id="ownerTwo"
+            type="tel"
+            placeholder="يُضاف لاحقًا"
+        >
+
+    </label>
+
+
+    <button
+        id="saveOwnersBtn"
+        class="primary-btn"
+    >
+        حفظ الأرقام
+    </button>
+
+</section>
+
+
+</div>
+
+</section>
+
+</main>
+
+
+
+<footer>
+
+<p>
+© <span id="year"></span>
+ملعب العزيمة 14
+</p>
+
+</footer>
+
+
+<script src="admin.js"></script>
+
+</body>
+</html>
