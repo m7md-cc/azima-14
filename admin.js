@@ -2505,13 +2505,7 @@ function openReport(
                             emptyRow
                         }
 
-                        ${
-                            reportRows
-                            ?
-                            reportRows
-                            :
-                            emptyRow
-                        }
+                        $
 
                     </tbody>
 
