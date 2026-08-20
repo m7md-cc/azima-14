@@ -351,52 +351,43 @@ function makeSlots(){
         );
 
 
-    /*
-        الملعب من 17:00 إلى 01:00
-    */
+    // المواعيد تبدأ كل 30 دقيقة
+    // بدل كل 60 دقيقة
+    for(
+        let m = open;
 
-    if(open < 1440){
+        m < 1440;
 
-        for(
-            let m = open;
+        m += 30
+    ){
 
-            m < 1440;
-
-            m += 60
-        ){
-
-            slots.push(
-                `${pad(
-                    Math.floor(m / 60)
-                )}:${pad(
-                    m % 60
-                )}`
-            );
-
-        }
+        slots.push(
+            `${pad(
+                Math.floor(m / 60)
+            )}:${pad(
+                m % 60
+            )}`
+        );
 
     }
 
 
-    if(close > 0){
+    // المواعيد بعد منتصف الليل
+    for(
+        let m = 0;
 
-        for(
-            let m = 0;
+        m < close;
 
-            m < close;
+        m += 30
+    ){
 
-            m += 60
-        ){
-
-            slots.push(
-                `${pad(
-                    Math.floor(m / 60)
-                )}:${pad(
-                    m % 60
-                )}`
-            );
-
-        }
+        slots.push(
+            `${pad(
+                Math.floor(m / 60)
+            )}:${pad(
+                m % 60
+            )}`
+        );
 
     }
 
@@ -404,7 +395,6 @@ function makeSlots(){
     return slots;
 
 }
-
 
 // ================= OVERLAP =================
 
