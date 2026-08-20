@@ -1021,22 +1021,28 @@ renderSlots();
 
 supabaseClient
     .from("settings")
-    .select("id,day_price,night_price")
+    .select("id, day_price, night_price")
     .eq("id", 1)
     .single()
     .then(({ data, error }) => {
 
         if (error) {
-            console.error(
-                "Supabase Error:",
-                error
+
+            alert(
+                "خطأ في Supabase:\n" +
+                error.message
             );
+
             return;
         }
 
-        console.log(
-            "Supabase Connected:",
-            data
+        alert(
+            "تم الاتصال بـ Supabase بنجاح ✅\n\n" +
+            "سعر النهار: " +
+            data.day_price +
+            "\n" +
+            "سعر الليل: " +
+            data.night_price
         );
 
     });
