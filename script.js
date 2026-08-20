@@ -1,8 +1,20 @@
 const STORAGE_KEY =
     "alazima14_bookings_v1";
 
-const SETTINGS_KEY =
-    "alazima14_settings_v1";
+
+const SUPABASE_URL =
+    "https://yoflvktmovseppukqdio.supabase.co";
+
+
+const SUPABASE_KEY =
+    "sb_publishable_L9U9B8viS8bD85N1kmUm5g_qM5YpQ3a";
+
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
 
 
 const defaultSettings = {
