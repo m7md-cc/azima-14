@@ -27,7 +27,7 @@ const defaultSettings = {
 
     ownerOne: "201116733739",
 
-    ownerTwo: ""
+    ownerTwo: "201554093227"
 
 };
 
