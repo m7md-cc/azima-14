@@ -1,17 +1,8 @@
-// =====================================================
-// ملعب العزيمة 14
-// script.js - Supabase + WhatsApp
-// =====================================================
-
-
-// ================= SUPABASE =================
-
 const SUPABASE_URL =
     "https://yoflvktmovseppukqdio.supabase.co";
 
 const SUPABASE_KEY =
     "sb_publishable_L9U9B8viS8bD85N1kmUm5g_qM5YpQ3a";
-
 
 const supabaseClient =
     window.supabase.createClient(
@@ -46,61 +37,38 @@ let settings = {
 };
 
 
-// ================= DATA =================
-
-let bookings = [];
+// ================= STATE =================
 
 let selectedSlot = null;
+
+let bookedSlots = [];
 
 
 // ================= ELEMENTS =================
 
 const dateInput =
-    document.getElementById(
-        "bookingDate"
-    );
-
+    document.getElementById("bookingDate");
 
 const durationInput =
-    document.getElementById(
-        "duration"
-    );
-
+    document.getElementById("duration");
 
 const slotsEl =
-    document.getElementById(
-        "slots"
-    );
-
+    document.getElementById("slots");
 
 const selectedSummary =
-    document.getElementById(
-        "selectedSummary"
-    );
-
+    document.getElementById("selectedSummary");
 
 const bookingForm =
-    document.getElementById(
-        "bookingForm"
-    );
-
+    document.getElementById("bookingForm");
 
 const weeklyOptions =
-    document.getElementById(
-        "weeklyOptions"
-    );
-
+    document.getElementById("weeklyOptions");
 
 const weeklyEndDate =
-    document.getElementById(
-        "weeklyEndDate"
-    );
-
+    document.getElementById("weeklyEndDate");
 
 const messageEl =
-    document.getElementById(
-        "message"
-    );
+    document.getElementById("message");
 
 
 // ================= YEAR =================
@@ -126,18 +94,18 @@ function pad(n){
 }
 
 
-// ================= LOCAL DATE =================
-
 function localISODate(
     d = new Date()
 ){
 
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    return `${d.getFullYear()}-${pad(
+        d.getMonth() + 1
+    )}-${pad(
+        d.getDate()
+    )}`;
 
 }
 
-
-// ================= FUTURE DATE =================
 
 function futureDate(days){
 
@@ -153,71 +121,63 @@ function futureDate(days){
 }
 
 
-// ================= TIME =================
-
 function timeToMinutes(time){
 
     if(!time)
         return 0;
 
-
-    const parts =
-        time
-        .toString()
+    const [
+        h,
+        m
+    ] =
+        String(time)
+        .substring(0, 5)
         .split(":")
         .map(Number);
 
-
     return (
-        (parts[0] || 0) * 60 +
-        (parts[1] || 0)
+        (h || 0) * 60 +
+        (m || 0)
     );
 
 }
 
-
-// ================= TIME DISPLAY =================
 
 function minutesToTime(minutes){
 
     minutes =
         ((minutes % 1440) + 1440) % 1440;
 
-
     const h =
         Math.floor(
             minutes / 60
         );
 
-
     const m =
         minutes % 60;
 
-
     const suffix =
         h < 12
-        ? "ص"
-        : "م";
-
+            ? "ص"
+            : "م";
 
     const hh =
         h % 12 || 12;
-
 
     return `${hh}:${pad(m)} ${suffix}`;
 
 }
 
 
-// ================= DATE LABEL =================
-
 function dateLabel(value){
+
+    if(!value)
+        return "";
 
     const d =
         new Date(
             value + "T12:00:00"
         );
-
 
     return new Intl.DateTimeFormat(
         "ar-EG",
@@ -232,22 +192,17 @@ function dateLabel(value){
 }
 
 
-// ================= END TIME =================
-
 function endTime(
     start,
     duration
 ){
 
     let result =
-        timeToMinutes(start)
-        +
+        timeToMinutes(start) +
         Number(duration);
-
 
     result =
         result % 1440;
-
 
     return `${pad(
         Math.floor(result / 60)
@@ -258,40 +213,9 @@ function endTime(
 }
 
 
-// ================= PRICE =================
+// ================= SETTINGS =================
 
-function priceFor(
-    start,
-    duration
-){
-
-    const startMinutes =
-        timeToMinutes(start);
-
-
-    const nightStart =
-        timeToMinutes(
-            settings.nightStart
-        );
-
-
-    const hourly =
-        startMinutes >= nightStart
-        ?
-        Number(settings.nightPrice)
-        :
-        Number(settings.dayPrice);
-
-
-    return hourly *
-        (Number(duration) / 60);
-
-}
-
-
-// ================= LOAD SETTINGS =================
-
-async function loadSettingsFromSupabase(){
+async function loadSettings(){
 
     try{
 
@@ -300,18 +224,18 @@ async function loadSettingsFromSupabase(){
             error
         } =
             await supabaseClient
-            .from("settings")
-            .select(`
-                day_price,
-                night_price,
-                night_start,
-                opening_time,
-                closing_time,
-                owner_one_phone,
-                owner_two_phone
-            `)
-            .eq("id", 1)
-            .maybeSingle();
+                .from("settings")
+                .select(`
+                    day_price,
+                    night_price,
+                    night_start,
+                    opening_time,
+                    closing_time,
+                    owner_one_phone,
+                    owner_two_phone
+                `)
+                .eq("id", 1)
+                .maybeSingle();
 
 
         if(error){
@@ -329,36 +253,29 @@ async function loadSettingsFromSupabase(){
         if(data){
 
             settings.dayPrice =
-                Number(
-                    data.day_price
-                );
-
+                Number(data.day_price);
 
             settings.nightPrice =
-                Number(
-                    data.night_price
-                );
-
+                Number(data.night_price);
 
             settings.nightStart =
-                data.night_start ||
-                defaultSettings.nightStart;
-
+                String(
+                    data.night_start
+                ).substring(0, 5);
 
             settings.open =
-                data.opening_time ||
-                defaultSettings.open;
-
+                String(
+                    data.opening_time
+                ).substring(0, 5);
 
             settings.close =
-                data.closing_time ||
-                defaultSettings.close;
-
+                String(
+                    data.closing_time
+                ).substring(0, 5);
 
             settings.ownerOne =
                 data.owner_one_phone ||
-                defaultSettings.ownerOne;
-
+                "";
 
             settings.ownerTwo =
                 data.owner_two_phone ||
@@ -371,7 +288,7 @@ async function loadSettingsFromSupabase(){
     catch(error){
 
         console.warn(
-            "Could not load settings:",
+            "Settings exception:",
             error
         );
 
@@ -380,75 +297,111 @@ async function loadSettingsFromSupabase(){
 }
 
 
-// ================= MAKE SLOTS =================
+// ================= PRICE =================
+
+function priceFor(
+    start,
+    duration
+){
+
+    const startMinutes =
+        timeToMinutes(start);
+
+    const nightStart =
+        timeToMinutes(
+            settings.nightStart
+        );
+
+    /*
+        لو الحجز يبدأ قبل 7:30 م
+        يستخدم سعر النهار.
+
+        لو يبدأ من 7:30 م أو بعده
+        يستخدم سعر الليل.
+    */
+
+    const hourly =
+        startMinutes >= nightStart
+            ?
+            Number(settings.nightPrice)
+            :
+            Number(settings.dayPrice);
+
+
+    return hourly *
+        (Number(duration) / 60);
+
+}
+
+
+// ================= SLOTS =================
 
 function makeSlots(){
 
     const slots = [];
 
-
-    const openMinutes =
+    const open =
         timeToMinutes(
             settings.open
         );
 
-
-    const closeMinutes =
+    const close =
         timeToMinutes(
             settings.close
         );
 
 
-    for(
-        let m = openMinutes;
+    /*
+        الملعب من 17:00 إلى 01:00
+    */
 
-        m < 1440;
+    if(open < 1440){
 
-        m += 60
-    ){
+        for(
+            let m = open;
 
-        slots.push(
-            `${pad(
-                Math.floor(m / 60)
-            )}:${pad(
-                m % 60
-            )}`
-        );
+            m < 1440;
+
+            m += 60
+        ){
+
+            slots.push(
+                `${pad(
+                    Math.floor(m / 60)
+                )}:${pad(
+                    m % 60
+                )}`
+            );
+
+        }
 
     }
 
 
-    for(
-        let m = 0;
+    if(close > 0){
 
-        m < closeMinutes;
+        for(
+            let m = 0;
 
-        m += 60
-    ){
+            m < close;
 
-        slots.push(
-            `${pad(
-                Math.floor(m / 60)
-            )}:${pad(
-                m % 60
-            )}`
-        );
+            m += 60
+        ){
+
+            slots.push(
+                `${pad(
+                    Math.floor(m / 60)
+                )}:${pad(
+                    m % 60
+                )}`
+            );
+
+        }
 
     }
 
 
     return slots;
-
-}
-
-
-// ================= NORMALIZE TIME =================
-
-function normalizeMinutes(x){
-
-    return x < 300
-        ? x + 1440
-        : x;
 
 }
 
@@ -462,36 +415,48 @@ function rangesOverlap(
     bEnd
 ){
 
-    let aS =
-        normalizeMinutes(
-            timeToMinutes(aStart)
-        );
+    const normalize =
+        value => {
 
+            let minutes =
+                timeToMinutes(value);
+
+            if(minutes < 300){
+
+                minutes += 1440;
+
+            }
+
+            return minutes;
+
+        };
+
+
+    let aS =
+        normalize(aStart);
 
     let aE =
-        normalizeMinutes(
-            timeToMinutes(aEnd)
-        );
-
+        normalize(aEnd);
 
     let bS =
-        normalizeMinutes(
-            timeToMinutes(bStart)
-        );
-
+        normalize(bStart);
 
     let bE =
-        normalizeMinutes(
-            timeToMinutes(bEnd)
-        );
+        normalize(bEnd);
 
 
-    if(aE <= aS)
+    if(aE <= aS){
+
         aE += 1440;
 
+    }
 
-    if(bE <= bS)
+
+    if(bE <= bS){
+
         bE += 1440;
+
+    }
 
 
     return (
@@ -502,65 +467,50 @@ function rangesOverlap(
 }
 
 
-// ================= WEEKLY DATE =================
+// ================= SUPABASE BOOKED SLOTS =================
 
-function bookingAffectsDate(
-    booking,
-    date
-){
+async function loadBookedSlots(date){
 
-    if(
-        booking.booking_date === date
-    ){
-
-        return true;
-
-    }
+    bookedSlots = [];
 
 
-    if(
-        booking.booking_type === "weekly" &&
-        booking.booking_date < date
-    ){
-
-        const start =
-            new Date(
-                booking.booking_date +
-                "T12:00:00"
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .rpc(
+                "get_booked_slots",
+                {
+                    p_date: date
+                }
             );
 
 
-        const target =
-            new Date(
-                date +
-                "T12:00:00"
-            );
+    if(error){
 
-
-        const difference =
-            Math.round(
-                (target - start) /
-                86400000
-            );
-
-
-        return (
-
-            difference > 0 &&
-
-            difference % 7 === 0 &&
-
-            (
-                !booking.weekly_end_date ||
-                date <= booking.weekly_end_date
-            )
-
+        console.error(
+            "get_booked_slots error:",
+            error
         );
 
+        showMessage(
+            "حدث خطأ أثناء تحميل المواعيد. حاول مرة أخرى.",
+            true
+        );
+
+        return false;
+
     }
 
 
-    return false;
+    bookedSlots =
+        Array.isArray(data)
+            ? data
+            : [];
+
+
+    return true;
 
 }
 
@@ -568,7 +518,6 @@ function bookingAffectsDate(
 // ================= OCCUPIED =================
 
 function isOccupied(
-    date,
     start,
     duration
 ){
@@ -580,112 +529,18 @@ function isOccupied(
         );
 
 
-    return bookings.some(
-        booking =>
+    return bookedSlots.some(
+        booking => {
 
-            booking.status !==
-            "cancelled"
-
-            &&
-
-            bookingAffectsDate(
-                booking,
-                date
-            )
-
-            &&
-
-            rangesOverlap(
+            return rangesOverlap(
                 start,
                 end,
                 booking.start_time,
                 booking.end_time
-            )
-
-    );
-
-}
-
-
-// ================= LOAD BOOKINGS =================
-
-async function loadBookingsFromSupabase(){
-
-    try{
-
-        const {
-            data,
-            error
-        } =
-            await supabaseClient
-            .from("bookings")
-            .select(`
-                id,
-                customer_name,
-                customer_phone,
-                booking_date,
-                start_time,
-                end_time,
-                duration_minutes,
-                price,
-                booking_type,
-                weekly_end_date,
-                status,
-                created_at
-            `)
-            .order(
-                "booking_date",
-                {
-                    ascending: true
-                }
             );
-
-
-        if(error){
-
-            console.error(
-                "Bookings error:",
-                error
-            );
-
-
-            showMessage(
-                "تعذر تحميل المواعيد من الخادم.",
-                true
-            );
-
-
-            return false;
 
         }
-
-
-        bookings =
-            Array.isArray(data)
-            ? data
-            : [];
-
-
-        return true;
-
-    }
-
-    catch(error){
-
-        console.error(
-            error
-        );
-
-
-        showMessage(
-            "حدث خطأ أثناء تحميل المواعيد.",
-            true
-        );
-
-
-        return false;
-
-    }
+    );
 
 }
 
@@ -744,10 +599,44 @@ async function renderSlots(){
         dateInput.value;
 
 
+    if(!date)
+        return;
+
+
     document.getElementById(
         "selectedDateLabel"
     ).textContent =
         dateLabel(date);
+
+
+    slotsEl.innerHTML = `
+
+        <p class="muted">
+            جاري تحميل المواعيد...
+        </p>
+
+    `;
+
+
+    const success =
+        await loadBookedSlots(
+            date
+        );
+
+
+    if(!success){
+
+        slotsEl.innerHTML = `
+
+            <p class="muted">
+                تعذر تحميل المواعيد.
+            </p>
+
+        `;
+
+        return;
+
+    }
 
 
     slotsEl.innerHTML =
@@ -765,7 +654,6 @@ async function renderSlots(){
 
             const occupied =
                 isOccupied(
-                    date,
                     start,
                     duration
                 );
@@ -785,10 +673,10 @@ async function renderSlots(){
                 "slot " +
                 (
                     occupied
-                    ?
-                    "booked"
-                    :
-                    "available"
+                        ?
+                        "booked"
+                        :
+                        "available"
                 );
 
 
@@ -863,17 +751,21 @@ async function renderSlots(){
                             ...slotsEl.children
                         ]
                         .forEach(
-                            item =>
+                            item => {
+
                                 item.classList
-                                .remove(
-                                    "selected"
-                                )
+                                    .remove(
+                                        "selected"
+                                    );
+
+                            }
                         );
 
 
-                        button.classList.add(
-                            "selected"
-                        );
+                        button.classList
+                            .add(
+                                "selected"
+                            );
 
 
                         renderSummary();
@@ -902,10 +794,18 @@ function renderSummary(){
         return;
 
 
-    const type =
+    const selectedType =
         document.querySelector(
             'input[name="bookingType"]:checked'
-        ).value;
+        );
+
+
+    const type =
+        selectedType
+            ?
+            selectedType.value
+            :
+            "single";
 
 
     selectedSummary.innerHTML = `
@@ -923,6 +823,7 @@ function renderSummary(){
         <br>
 
         ⏰
+
         ${minutesToTime(
             timeToMinutes(
                 selectedSlot.start
@@ -940,6 +841,7 @@ function renderSummary(){
         <br>
 
         ⏱️
+
         ${
             selectedSlot.duration === 60
             ?
@@ -955,7 +857,9 @@ function renderSummary(){
         <br>
 
         💰
+
         ${selectedSlot.price}
+
         جنيه
 
         ${
@@ -981,86 +885,6 @@ function renderSummary(){
 }
 
 
-// ================= WHATSAPP =================
-
-function openWhatsApp(
-    booking
-){
-
-    const owner =
-        settings.ownerOne;
-
-
-    if(!owner){
-
-        console.warn(
-            "Owner WhatsApp number is missing."
-        );
-
-        return;
-
-    }
-
-
-    const phone =
-        String(owner)
-        .replace(
-            /\D/g,
-            ""
-        );
-
-
-    const message =
-
-`⚽ طلب حجز جديد - ملعب العزيمة 14
-
-👤 الاسم: ${booking.customer_name}
-
-📱 الموبايل: ${booking.customer_phone}
-
-📅 التاريخ: ${dateLabel(booking.booking_date)}
-
-⏰ الوقت: ${minutesToTime(
-    timeToMinutes(
-        booking.start_time
-    )
-)} - ${minutesToTime(
-    timeToMinutes(
-        booking.end_time
-    )
-)}
-
-⏱️ المدة: ${booking.duration_minutes} دقيقة
-
-💰 السعر: ${booking.price} جنيه
-
-${
-    booking.booking_type === "weekly"
-    ?
-    `🔄 حجز أسبوعي
-📆 ينتهي: ${booking.weekly_end_date || "غير محدد"}`
-    :
-    "📌 حجز لمرة واحدة"
-}
-
-🟡 الحالة: في انتظار التأكيد`;
-
-
-    const url =
-        "https://wa.me/" +
-        phone +
-        "?text=" +
-        encodeURIComponent(
-            message
-        );
-
-
-    window.location.href =
-        url;
-
-}
-
-
 // ================= BOOKING TYPE =================
 
 document
@@ -1079,20 +903,31 @@ document
                             ".choice"
                         )
                         .forEach(
-                            item =>
+                            item => {
+
                                 item.classList
-                                .remove(
-                                    "active"
-                                )
+                                    .remove(
+                                        "active"
+                                    );
+
+                            }
                         );
 
 
-                    radio
-                        .closest(
+                    const choice =
+                        radio.closest(
                             ".choice"
-                        )
-                        .classList
-                        .add("active");
+                        );
+
+
+                    if(choice){
+
+                        choice.classList
+                            .add(
+                                "active"
+                            );
+
+                    }
 
 
                     const weekly =
@@ -1125,7 +960,7 @@ document
     );
 
 
-// ================= DATE =================
+// ================= INITIAL DATE =================
 
 dateInput.value =
     futureDate(1);
@@ -1139,15 +974,14 @@ weeklyEndDate.min =
     dateInput.value;
 
 
+// ================= DATE CHANGE =================
+
 dateInput.addEventListener(
     "change",
-    async () => {
+    () => {
 
         weeklyEndDate.min =
             dateInput.value;
-
-
-        await loadBookingsFromSupabase();
 
         renderSlots();
 
@@ -1155,7 +989,7 @@ dateInput.addEventListener(
 );
 
 
-// ================= DURATION =================
+// ================= DURATION CHANGE =================
 
 durationInput.addEventListener(
     "change",
@@ -1163,7 +997,7 @@ durationInput.addEventListener(
 );
 
 
-// ================= SUBMIT =================
+// ================= SUBMIT BOOKING =================
 
 bookingForm.addEventListener(
     "submit",
@@ -1175,7 +1009,7 @@ bookingForm.addEventListener(
         if(!selectedSlot){
 
             showMessage(
-                "اختار موعد أولًا.",
+                "اختار موعد الأول.",
                 true
             );
 
@@ -1186,34 +1020,42 @@ bookingForm.addEventListener(
 
         const name =
             document
-            .getElementById(
-                "customerName"
-            )
-            .value
-            .trim();
+                .getElementById(
+                    "customerName"
+                )
+                .value
+                .trim();
 
 
         const phone =
             document
-            .getElementById(
-                "customerPhone"
-            )
-            .value
-            .trim();
+                .getElementById(
+                    "customerPhone"
+                )
+                .value
+                .trim();
+
+
+        const selectedType =
+            document.querySelector(
+                'input[name="bookingType"]:checked'
+            );
 
 
         const type =
-            document.querySelector(
-                'input[name="bookingType"]:checked'
-            ).value;
+            selectedType
+                ?
+                selectedType.value
+                :
+                "single";
 
 
         const endDate =
             type === "weekly"
-            ?
-            weeklyEndDate.value
-            :
-            null;
+                ?
+                weeklyEndDate.value
+                :
+                null;
 
 
         if(!name){
@@ -1259,20 +1101,31 @@ bookingForm.addEventListener(
         }
 
 
-        // تحديث الحجوزات من Supabase
-        // قبل التسجيل لمنع الحجز المزدوج
+        /*
+            نعمل فحص جديد من Supabase
+            قبل تسجيل الحجز.
+        */
 
-        const loaded =
-            await loadBookingsFromSupabase();
+        showMessage(
+            "جاري التأكد من توفر الموعد..."
+        );
 
 
-        if(!loaded)
+        const freshCheck =
+            await loadBookedSlots(
+                dateInput.value
+            );
+
+
+        if(!freshCheck){
+
             return;
+
+        }
 
 
         if(
             isOccupied(
-                dateInput.value,
                 selectedSlot.start,
                 selectedSlot.duration
             )
@@ -1283,32 +1136,33 @@ bookingForm.addEventListener(
                 true
             );
 
-
-            renderSlots();
+            await renderSlots();
 
             return;
 
         }
 
 
-        // تعطيل الزر مؤقتًا
+        /*
+            إعادة حساب السعر من الإعدادات
+        */
 
-        const submitButton =
-            bookingForm.querySelector(
-                'button[type="submit"]'
+        const price =
+            priceFor(
+                selectedSlot.start,
+                selectedSlot.duration
             );
 
 
-        if(submitButton){
+        showMessage(
+            "جاري تسجيل الحجز..."
+        );
 
-            submitButton.disabled =
-                true;
 
-            submitButton.textContent =
-                "جاري تسجيل الحجز...";
-
-        }
-
+        /*
+            تجهيز البيانات بنفس أسماء
+            أعمدة Supabase.
+        */
 
         const bookingData = {
 
@@ -1331,7 +1185,7 @@ bookingForm.addEventListener(
                 selectedSlot.duration,
 
             price:
-                selectedSlot.price,
+                price,
 
             booking_type:
                 type,
@@ -1345,159 +1199,265 @@ bookingForm.addEventListener(
         };
 
 
-        try{
-
-            const {
-                data,
-                error
-            } =
-                await supabaseClient
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
                 .from("bookings")
                 .insert(
                     bookingData
                 )
-                .select()
+                .select(`
+                    id,
+                    customer_name,
+                    customer_phone,
+                    booking_date,
+                    start_time,
+                    end_time,
+                    duration_minutes,
+                    price,
+                    booking_type,
+                    weekly_end_date,
+                    status
+                `)
                 .single();
 
 
-            if(error){
-
-                console.error(
-                    "Insert booking error:",
-                    error
-                );
-
-
-                if(
-                    error.code ===
-                    "23505"
-                ){
-
-                    showMessage(
-                        "الموعد تم حجزه بالفعل. اختار موعدًا آخر.",
-                        true
-                    );
-
-                }
-
-                else{
-
-                    showMessage(
-                        "حدث خطأ أثناء تسجيل الحجز: " +
-                        error.message,
-                        true
-                    );
-
-                }
-
-
-                return;
-
-            }
-
-
-            // إضافة الحجز للقائمة المحلية
-            bookings.push(
-                data
-            );
-
-
-            showMessage(
-                "تم تسجيل طلب الحجز بنجاح ✅ سيتم فتح واتساب المالك الآن."
-            );
-
-
-            // فتح واتساب
-            setTimeout(
-                () => {
-
-                    openWhatsApp(
-                        data
-                    );
-
-                },
-                400
-            );
-
-
-            bookingForm.reset();
-
-
-            selectedSlot =
-                null;
-
-
-            await loadBookingsFromSupabase();
-
-            renderSlots();
-
-        }
-
-        catch(error){
+        if(error){
 
             console.error(
+                "Booking insert error:",
                 error
             );
 
 
             showMessage(
-                "حدث خطأ غير متوقع أثناء تسجيل الحجز.",
+                "حدث خطأ أثناء تسجيل الحجز: " +
+                error.message,
                 true
             );
 
-        }
 
-        finally{
-
-            if(submitButton){
-
-                submitButton.disabled =
-                    false;
-
-                submitButton.textContent =
-                    "تأكيد طلب الحجز";
-
-            }
+            return;
 
         }
+
+
+        /*
+            الحجز اتسجل بنجاح.
+        */
+
+        showMessage(
+            "تم تسجيل طلب الحجز بنجاح ✅ سيتم التواصل معك لتأكيد الموعد."
+        );
+
+
+        /*
+            إرسال رسالة واتساب للمالك.
+        */
+
+        sendWhatsApp(
+            data
+        );
+
+
+        /*
+            تنظيف النموذج.
+        */
+
+        bookingForm.reset();
+
+
+        selectedSlot =
+            null;
+
+
+        selectedSummary
+            .classList
+            .add("hidden");
+
+
+        /*
+            إعادة تحميل المواعيد.
+        */
+
+        await renderSlots();
 
     }
 );
 
 
+// ================= WHATSAPP =================
+
+function sendWhatsApp(
+    booking
+){
+
+    if(!booking)
+        return;
+
+
+    const owner =
+        settings.ownerOne ||
+        settings.ownerTwo ||
+        "";
+
+
+    if(!owner){
+
+        console.warn(
+            "No owner WhatsApp number configured."
+        );
+
+        return;
+
+    }
+
+
+    /*
+        إزالة أي رموز غير الأرقام
+    */
+
+    const cleanOwner =
+        String(owner)
+            .replace(
+                /\D/g,
+                ""
+            );
+
+
+    if(!cleanOwner){
+
+        console.warn(
+            "Invalid owner WhatsApp number."
+        );
+
+        return;
+
+    }
+
+
+    const typeText =
+        booking.booking_type === "weekly"
+            ?
+            "حجز أسبوعي متكرر"
+            :
+            "حجز لمرة واحدة";
+
+
+    const durationText =
+        Number(
+            booking.duration_minutes
+        ) === 60
+            ?
+            "ساعة"
+            :
+            Number(
+                booking.duration_minutes
+            ) === 90
+                ?
+                "ساعة ونصف"
+                :
+                "ساعتان";
+
+
+    const message =
+
+        `⚽ *طلب حجز جديد - ملعب العزيمة 14*` +
+
+        `\n\n` +
+
+        `👤 الاسم: ${booking.customer_name}` +
+
+        `\n📱 الموبايل: ${booking.customer_phone}` +
+
+        `\n📅 التاريخ: ${dateLabel(
+            booking.booking_date
+        )}` +
+
+        `\n⏰ الموعد: ${minutesToTime(
+            timeToMinutes(
+                booking.start_time
+            )
+        )} - ${minutesToTime(
+            timeToMinutes(
+                booking.end_time
+            )
+        )}` +
+
+        `\n⏱️ المدة: ${durationText}` +
+
+        `\n💰 السعر: ${booking.price} جنيه` +
+
+        `\n📌 النوع: ${typeText}` +
+
+        (
+            booking.booking_type === "weekly"
+            ?
+            `\n🔄 ينتهي في: ${dateLabel(
+                booking.weekly_end_date
+            )}`
+            :
+            ""
+        ) +
+
+        `\n\n🟡 الحالة: في انتظار التأكيد`;
+
+
+    const url =
+        "https://wa.me/" +
+        cleanOwner +
+        "?text=" +
+        encodeURIComponent(
+            message
+        );
+
+
+    /*
+        فتح واتساب في تبويب جديد.
+    */
+
+    window.open(
+        url,
+        "_blank"
+    );
+
+}
+
+
 // ================= START =================
 
-async function initialize(){
+async function init(){
 
     showMessage(
         "جاري تحميل المواعيد..."
     );
 
 
-    await loadSettingsFromSupabase();
+    await loadSettings();
 
 
-    const loaded =
-        await loadBookingsFromSupabase();
+    await renderSlots();
 
 
-    if(loaded){
+    /*
+        نخفي رسالة التحميل
+        بعد اكتمال البداية.
+    */
 
-        if(messageEl){
+    if(
+        messageEl &&
+        messageEl.textContent ===
+        "جاري تحميل المواعيد..."
+    ){
 
-            messageEl.classList.add(
-                "hidden"
-            );
-
-        }
-
-        renderSlots();
+        messageEl.classList
+            .add("hidden");
 
     }
 
 }
 
 
-// تشغيل الموقع
-
-initialize();
+init();
