@@ -174,7 +174,85 @@
 
 </div>
 
+<!-- ========================================================= -->
+<!-- USER MANAGEMENT -->
+<!-- ========================================================= -->
 
+<section
+    id="usersSection"
+    class="admin-section hidden"
+>
+
+    <div class="section-header">
+
+        <h2>
+            👥 إدارة المستخدمين
+        </h2>
+
+        <p>
+            إدارة حسابات فريق الإدارة
+        </p>
+
+    </div>
+
+
+    <!-- ADD USER -->
+
+    <div class="user-form">
+
+        <input
+            id="newUsername"
+            type="text"
+            autocomplete="off"
+            placeholder="اسم المستخدم"
+        >
+
+
+        <input
+            id="newPassword"
+            type="password"
+            autocomplete="new-password"
+            placeholder="كلمة المرور"
+        >
+
+
+        <select id="newRole">
+
+            <option value="admin">
+                🛡️ مدير
+            </option>
+
+            <option value="owner">
+                👑 مالك
+            </option>
+
+        </select>
+
+
+        <button
+            id="createUserBtn"
+            type="button"
+        >
+            ➕ إضافة المستخدم
+        </button>
+
+    </div>
+
+
+    <div
+        id="usersMessage"
+        class="hidden"
+    ></div>
+
+
+    <!-- USERS -->
+
+    <div
+        id="usersList"
+        class="users-list"
+    ></div>
+
+</section>
 
 <!-- ================= STATS ================= -->
 
