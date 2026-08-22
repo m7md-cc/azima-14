@@ -734,9 +734,10 @@ async function login(){
         ↓
         admin@azima.local
 
-        ahmed
+        أي مستخدم آخر:
+        username
         ↓
-        ahmed@azima.local
+        username@azima.local
     */
 
 
@@ -745,6 +746,12 @@ async function login(){
 
 
     try{
+
+        console.log(
+            "Trying login with:",
+            email
+        );
+
 
         const {
             data,
@@ -761,17 +768,22 @@ async function login(){
                 });
 
 
+        // ====================================================
+        // AUTH LOGIN ERROR
+        // ====================================================
+
         if(error){
 
             console.error(
-                "Login error:",
+                "LOGIN ERROR:",
                 error
             );
 
 
             show(
                 "loginMessage",
-                "اسم المستخدم أو كلمة المرور غير صحيحة.",
+                "خطأ تسجيل الدخول: " +
+                error.message,
                 true
             );
 
@@ -781,7 +793,16 @@ async function login(){
         }
 
 
+        // ====================================================
+        // USER NOT RETURNED
+        // ====================================================
+
         if(!data.user){
+
+            console.error(
+                "No user returned from Supabase Auth."
+            );
+
 
             show(
                 "loginMessage",
@@ -795,22 +816,45 @@ async function login(){
         }
 
 
+        console.log(
+            "Auth login successful:",
+            data.user.id
+        );
+
+
+        // ====================================================
+        // GET ADMIN PROFILE
+        // ====================================================
+
         const profile =
             await getAdminProfile(
                 data.user.id
             );
 
 
+        // ====================================================
+        // ADMIN PROFILE NOT FOUND
+        // ====================================================
+
         if(!profile){
+
+            console.error(
+                "AUTH OK BUT ADMIN PROFILE NOT FOUND:",
+                data.user.id
+            );
+
 
             await supabaseClient
                 .auth
                 .signOut();
 
 
+            showLogin();
+
+
             show(
                 "loginMessage",
-                "هذا الحساب غير مسجل في لوحة الإدارة.",
+                "تم تسجيل الدخول في Auth لكن حساب المستخدم غير موجود في admin_users.",
                 true
             );
 
@@ -820,11 +864,24 @@ async function login(){
         }
 
 
+        // ====================================================
+        // ACCOUNT DISABLED
+        // ====================================================
+
         if(!profile.active){
+
+            console.error(
+                "ADMIN ACCOUNT IS DISABLED:",
+                profile
+            );
+
 
             await supabaseClient
                 .auth
                 .signOut();
+
+
+            showLogin();
 
 
             show(
@@ -839,8 +896,18 @@ async function login(){
         }
 
 
+        // ====================================================
+        // SUCCESS
+        // ====================================================
+
         currentAdmin =
             profile;
+
+
+        console.log(
+            "Admin profile:",
+            profile
+        );
 
 
         showDashboard();
@@ -854,14 +921,15 @@ async function login(){
     catch(error){
 
         console.error(
-            "Unexpected login error:",
+            "UNEXPECTED LOGIN ERROR:",
             error
         );
 
 
         show(
             "loginMessage",
-            "حدث خطأ أثناء تسجيل الدخول.",
+            "حدث خطأ أثناء تسجيل الدخول: " +
+            error.message,
             true
         );
 
