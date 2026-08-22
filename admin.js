@@ -3459,3 +3459,668 @@ if(adminDate){
 // ============================================================
 
 checkSession();
+
+// ============================================================
+// USER MANAGEMENT
+// ============================================================
+
+
+async function adminUsersRequest(
+    action,
+    extra = {}
+){
+
+    const {
+        data: {
+            session
+        }
+    } =
+        await supabaseClient
+            .auth
+            .getSession();
+
+
+    if(!session){
+
+        throw new Error(
+            "انتهت جلسة تسجيل الدخول."
+        );
+
+    }
+
+
+    const response =
+        await fetch(
+            `${SUPABASE_URL}/functions/v1/admin-users`,
+            {
+
+                method:"POST",
+
+                headers:{
+
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        `Bearer ${session.access_token}`
+
+                },
+
+                body:JSON.stringify({
+
+                    action,
+
+                    ...extra
+
+                })
+
+            }
+        );
+
+
+    const result =
+        await response.json();
+
+
+    if(!response.ok){
+
+        throw new Error(
+            result.error ||
+            "حدث خطأ."
+        );
+
+    }
+
+
+    return result;
+
+}
+
+
+// ============================================================
+// LOAD USERS
+// ============================================================
+
+async function loadAdminUsers(){
+
+    const list =
+        document.getElementById(
+            "usersList"
+        );
+
+
+    if(!list)
+        return;
+
+
+    list.innerHTML =
+        `<p class="muted">
+            جاري تحميل المستخدمين...
+        </p>`;
+
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .from("admin_users")
+            .select(`
+                id,
+                username,
+                role,
+                active,
+                created_at,
+                auth_user_id
+            `)
+            .order(
+                "created_at",
+                {
+                    ascending:true
+                }
+            );
+
+
+    if(error){
+
+        console.error(error);
+
+
+        list.innerHTML =
+            `<p class="error">
+                ${escapeHTML(
+                    error.message
+                )}
+            </p>`;
+
+
+        return;
+
+    }
+
+
+    list.innerHTML = "";
+
+
+    if(!data || !data.length){
+
+        list.innerHTML =
+            `<p class="muted">
+                لا يوجد مستخدمون.
+            </p>`;
+
+
+        return;
+
+    }
+
+
+    data.forEach(
+        user => {
+
+            const item =
+                document.createElement(
+                    "div"
+                );
+
+
+            item.className =
+                "user-item";
+
+
+            const isCurrent =
+                currentAdmin &&
+                user.id ===
+                currentAdmin.id;
+
+
+            item.innerHTML = `
+
+                <strong>
+                    👤
+                    ${escapeHTML(
+                        user.username
+                    )}
+                </strong>
+
+
+                <span
+                    class="user-role"
+                >
+
+                    ${
+                        user.role ===
+                        "owner"
+
+                        ?
+
+                        "👑 مالك"
+
+                        :
+
+                        "🛡️ مدير"
+
+                    }
+
+                </span>
+
+
+                <span
+                    class="user-status"
+                >
+
+                    ${
+                        user.active
+
+                        ?
+
+                        "🟢 نشط"
+
+                        :
+
+                        "🔴 معطل"
+
+                    }
+
+                </span>
+
+
+                ${
+                    isCurrent
+
+                    ?
+
+                    `
+                    <span>
+                        حسابك الحالي
+                    </span>
+                    `
+
+                    :
+
+                    ""
+
+                }
+
+
+                ${
+                    !isCurrent
+
+                    ?
+
+                    `
+
+                    <div
+                        class="user-actions"
+                    >
+
+                        <button
+                            class="toggle-btn"
+                            data-action="toggle"
+                            data-id="${user.id}"
+                        >
+
+                            ${
+                                user.active
+                                ?
+                                "🔴 تعطيل"
+                                :
+                                "🟢 تفعيل"
+                            }
+
+                        </button>
+
+
+                        <button
+                            class="password-btn"
+                            data-action="password"
+                            data-id="${user.id}"
+                        >
+
+                            🔑 تغيير كلمة المرور
+
+                        </button>
+
+
+                        <button
+                            class="delete-btn"
+                            data-action="delete"
+                            data-id="${user.id}"
+                        >
+
+                            🗑️ حذف
+
+                        </button>
+
+                    </div>
+
+                    `
+
+                    :
+
+                    ""
+
+                }
+
+            `;
+
+
+            item
+                .querySelectorAll(
+                    "button"
+                )
+                .forEach(
+                    button => {
+
+                        button.addEventListener(
+                            "click",
+                            async () => {
+
+                                const action =
+                                    button.dataset.action;
+
+                                const id =
+                                    button.dataset.id;
+
+
+                                if(
+                                    action ===
+                                    "toggle"
+                                ){
+
+                                    await toggleAdminUser(
+                                        id
+                                    );
+
+                                }
+
+
+                                if(
+                                    action ===
+                                    "password"
+                                ){
+
+                                    await changeAdminPassword(
+                                        id,
+                                        user.username
+                                    );
+
+                                }
+
+
+                                if(
+                                    action ===
+                                    "delete"
+                                ){
+
+                                    await deleteAdminUser(
+                                        id,
+                                        user.username
+                                    );
+
+                                }
+
+                            }
+                        );
+
+                    }
+                );
+
+
+            list.appendChild(
+                item
+            );
+
+        }
+    );
+
+}
+
+
+// ============================================================
+// CREATE USER
+// ============================================================
+
+async function createAdminUser(){
+
+    const usernameElement =
+        document.getElementById(
+            "newUsername"
+        );
+
+
+    const passwordElement =
+        document.getElementById(
+            "newPassword"
+        );
+
+
+    const roleElement =
+        document.getElementById(
+            "newRole"
+        );
+
+
+    const username =
+        usernameElement.value
+            .trim()
+            .toLowerCase();
+
+
+    const password =
+        passwordElement.value;
+
+
+    const role =
+        roleElement.value;
+
+
+    if(!username){
+
+        show(
+            "usersMessage",
+            "اكتب اسم المستخدم.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if(!password){
+
+        show(
+            "usersMessage",
+            "اكتب كلمة المرور.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    if(
+        password.length <
+        6
+    ){
+
+        show(
+            "usersMessage",
+            "كلمة المرور يجب أن تكون 6 أحرف على الأقل.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    try{
+
+        show(
+            "usersMessage",
+            "جاري إنشاء المستخدم..."
+        );
+
+
+        await adminUsersRequest(
+            "create",
+            {
+                username,
+                password,
+                role
+            }
+        );
+
+
+        usernameElement.value =
+            "";
+
+        passwordElement.value =
+            "";
+
+
+        show(
+            "usersMessage",
+            "تم إنشاء المستخدم بنجاح ✅"
+        );
+
+
+        await loadAdminUsers();
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+
+        show(
+            "usersMessage",
+            error.message,
+            true
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// TOGGLE
+// ============================================================
+
+async function toggleAdminUser(
+    userId
+){
+
+    try{
+
+        await adminUsersRequest(
+            "toggle",
+            {
+                userId
+            }
+        );
+
+
+        await loadAdminUsers();
+
+    }
+
+    catch(error){
+
+        alert(
+            error.message
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// CHANGE PASSWORD
+// ============================================================
+
+async function changeAdminPassword(
+    userId,
+    username
+){
+
+    const password =
+        prompt(
+            `اكتب كلمة المرور الجديدة للمستخدم: ${username}`
+        );
+
+
+    if(password === null)
+        return;
+
+
+    if(
+        password.length <
+        6
+    ){
+
+        alert(
+            "كلمة المرور يجب أن تكون 6 أحرف على الأقل."
+        );
+
+        return;
+
+    }
+
+
+    try{
+
+        await adminUsersRequest(
+            "password",
+            {
+                userId,
+                password
+            }
+        );
+
+
+        alert(
+            "تم تغيير كلمة المرور بنجاح ✅"
+        );
+
+    }
+
+    catch(error){
+
+        alert(
+            error.message
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// DELETE
+// ============================================================
+
+async function deleteAdminUser(
+    userId,
+    username
+){
+
+    const confirmed =
+        confirm(
+            `هل أنت متأكد من حذف المستخدم "${username}"؟\n\nلن يستطيع تسجيل الدخول بعد الحذف.`
+        );
+
+
+    if(!confirmed)
+        return;
+
+
+    try{
+
+        await adminUsersRequest(
+            "delete",
+            {
+                userId
+            }
+        );
+
+
+        await loadAdminUsers();
+
+
+        show(
+            "usersMessage",
+            "تم حذف المستخدم بنجاح ✅"
+        );
+
+    }
+
+    catch(error){
+
+        alert(
+            error.message
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// CREATE BUTTON
+// ============================================================
+
+document
+    .getElementById(
+        "createUserBtn"
+    )
+    ?.addEventListener(
+        "click",
+        createAdminUser
+    );
