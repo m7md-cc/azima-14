@@ -1285,3 +1285,204 @@ grid-template-columns:1fr;
 }
 
 } 
+
+/* ========================================================= */
+/* USER MANAGEMENT */
+/* ========================================================= */
+
+.user-form{
+
+    display:grid;
+
+    grid-template-columns:
+        1fr
+        1fr
+        180px
+        160px;
+
+    gap:10px;
+
+    margin-top:20px;
+
+}
+
+
+.user-form input,
+.user-form select{
+
+    width:100%;
+
+    padding:12px;
+
+    border:1px solid #ddd;
+
+    border-radius:10px;
+
+    font-family:inherit;
+
+    outline:none;
+
+}
+
+
+.user-form input:focus,
+.user-form select:focus{
+
+    border-color:
+        #7A1F3D;
+
+}
+
+
+.user-form button{
+
+    border:0;
+
+    border-radius:10px;
+
+    padding:12px;
+
+    cursor:pointer;
+
+    background:#7A1F3D;
+
+    color:white;
+
+    font-family:inherit;
+
+    font-weight:bold;
+
+}
+
+
+.users-list{
+
+    display:grid;
+
+    gap:12px;
+
+    margin-top:20px;
+
+}
+
+
+.user-item{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+    flex-wrap:wrap;
+
+    padding:15px;
+
+    border:1px solid #ddd;
+
+    border-radius:12px;
+
+    background:#fff;
+
+}
+
+
+.user-item strong{
+
+    min-width:120px;
+
+}
+
+
+.user-role{
+
+    font-size:14px;
+
+}
+
+
+.user-status{
+
+    font-size:14px;
+
+}
+
+
+.user-actions{
+
+    margin-right:auto;
+
+    display:flex;
+
+    gap:7px;
+
+    flex-wrap:wrap;
+
+}
+
+
+.user-actions button{
+
+    border:0;
+
+    border-radius:8px;
+
+    padding:8px 12px;
+
+    cursor:pointer;
+
+    font-family:inherit;
+
+}
+
+
+.user-actions .toggle-btn{
+
+    background:#eee;
+
+}
+
+
+.user-actions .password-btn{
+
+    background:#eee;
+
+}
+
+
+.user-actions .delete-btn{
+
+    background:#c62828;
+
+    color:#fff;
+
+}
+
+
+@media(max-width:800px){
+
+    .user-form{
+
+        grid-template-columns:1fr;
+
+    }
+
+
+    .user-item{
+
+        align-items:flex-start;
+
+        flex-direction:column;
+
+    }
+
+
+    .user-actions{
+
+        margin-right:0;
+
+        width:100%;
+
+    }
+
+}
