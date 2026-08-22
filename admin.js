@@ -1,6 +1,7 @@
 // ============================================================
 // AL AZIMA 14 - ADMIN DASHBOARD
-// Supabase Auth + Database + Reports + User Management
+// PART 1
+// Supabase Auth + Login + Session
 // ============================================================
 
 
@@ -57,19 +58,27 @@ let settings = {
 // ============================================================
 
 const loginPanel =
-    document.getElementById("loginPanel");
+    document.getElementById(
+        "loginPanel"
+    );
+
 
 const dashboard =
-    document.getElementById("dashboard");
+    document.getElementById(
+        "dashboard"
+    );
+
 
 const loginBtn =
-    document.getElementById("loginBtn");
+    document.getElementById(
+        "loginBtn"
+    );
+
 
 const logoutBtn =
-    document.getElementById("logoutBtn");
-
-const usersSection =
-    document.getElementById("usersSection");
+    document.getElementById(
+        "logoutBtn"
+    );
 
 
 // ============================================================
@@ -83,7 +92,9 @@ function show(
 ){
 
     const element =
-        document.getElementById(elementId);
+        document.getElementById(
+            elementId
+        );
 
 
     if(!element)
@@ -117,63 +128,6 @@ function show(
 
 
 // ============================================================
-// ROLE / PERMISSIONS
-// ============================================================
-
-function isOwner(){
-
-    return (
-        currentAdmin &&
-        currentAdmin.role === "owner"
-    );
-
-}
-
-
-function isAdmin(){
-
-    return (
-        currentAdmin &&
-        (
-            currentAdmin.role === "admin" ||
-            currentAdmin.role === "owner"
-        )
-    );
-
-}
-
-
-// ============================================================
-// USER MANAGEMENT VISIBILITY
-// ============================================================
-
-function updateUserManagementVisibility(){
-
-    if(!usersSection)
-        return;
-
-
-    if(isOwner()){
-
-        usersSection.classList.remove(
-            "hidden"
-        );
-
-        loadAdminUsers();
-
-    }
-    else{
-
-        usersSection.classList.add(
-            "hidden"
-        );
-
-    }
-
-}
-
-
-// ============================================================
 // DATE HELPERS
 // ============================================================
 
@@ -184,6 +138,7 @@ function localISODate(
     const year =
         date.getFullYear();
 
+
     const month =
         String(
             date.getMonth() + 1
@@ -191,6 +146,7 @@ function localISODate(
             2,
             "0"
         );
+
 
     const day =
         String(
@@ -223,7 +179,8 @@ function dateLabel(
         }
     ).format(
         new Date(
-            dateString + "T12:00:00"
+            dateString +
+            "T12:00:00"
         )
     );
 
@@ -244,15 +201,23 @@ function timeToMinutes(
 
     const parts =
         String(time)
-            .substring(0,5)
+            .substring(
+                0,
+                5
+            )
             .split(":");
 
 
     const hours =
-        Number(parts[0] || 0);
+        Number(
+            parts[0] || 0
+        );
+
 
     const minutes =
-        Number(parts[1] || 0);
+        Number(
+            parts[1] || 0
+        );
 
 
     return (
@@ -272,7 +237,13 @@ function minutesToTime(
 
 
     minutes =
-        ((minutes % 1440) + 1440) %
+        (
+            (
+                minutes %
+                1440
+            ) +
+            1440
+        ) %
         1440;
 
 
@@ -287,9 +258,11 @@ function minutesToTime(
 
 
     return (
-        String(hours).padStart(2,"0") +
+        String(hours)
+            .padStart(2, "0") +
         ":" +
-        String(mins).padStart(2,"0")
+        String(mins)
+            .padStart(2, "0")
     );
 
 }
@@ -336,14 +309,19 @@ function makeSlots(){
     while(true){
 
         result.push(
-            minutesToTime(start)
+            minutesToTime(
+                start
+            )
         );
 
 
         start += 60;
 
 
-        if(start >= closing){
+        if(
+            start >=
+            closing
+        ){
 
             break;
 
@@ -369,24 +347,47 @@ function overlap(
 ){
 
     let aStart =
-        timeToMinutes(startA);
+        timeToMinutes(
+            startA
+        );
+
 
     let aEnd =
-        timeToMinutes(endA);
+        timeToMinutes(
+            endA
+        );
+
 
     let bStart =
-        timeToMinutes(startB);
+        timeToMinutes(
+            startB
+        );
+
 
     let bEnd =
-        timeToMinutes(endB);
+        timeToMinutes(
+            endB
+        );
 
 
-    if(aEnd <= aStart)
+    // التعامل مع المواعيد التي تتجاوز منتصف الليل
+
+    if(
+        aEnd <= aStart
+    ){
+
         aEnd += 1440;
 
+    }
 
-    if(bEnd <= bStart)
+
+    if(
+        bEnd <= bStart
+    ){
+
         bEnd += 1440;
+
+    }
 
 
     return (
@@ -482,7 +483,7 @@ function affects(
 
 
 // ============================================================
-// ADMIN PROFILE
+// GET ADMIN PROFILE
 // ============================================================
 
 async function getAdminProfile(
@@ -515,6 +516,7 @@ async function getAdminProfile(
             "Admin profile error:",
             error
         );
+
 
         return null;
 
@@ -575,9 +577,6 @@ function showDashboard(){
 
     }
 
-
-    updateUserManagementVisibility();
-
 }
 
 
@@ -600,9 +599,13 @@ async function checkSession(){
 
         if(error){
 
-            console.error(error);
+            console.error(
+                error
+            );
+
 
             showLogin();
+
 
             return false;
 
@@ -616,6 +619,7 @@ async function checkSession(){
         if(!session){
 
             showLogin();
+
 
             return false;
 
@@ -734,6 +738,11 @@ async function login(){
         !passwordElement
     ){
 
+        console.error(
+            "Username/password fields not found."
+        );
+
+
         return;
 
     }
@@ -758,6 +767,7 @@ async function login(){
             true
         );
 
+
         return;
 
     }
@@ -771,6 +781,7 @@ async function login(){
             true
         );
 
+
         return;
 
     }
@@ -782,11 +793,21 @@ async function login(){
     );
 
 
+    // ========================================================
+    // تحويل اسم المستخدم إلى البريد الداخلي
+    // ========================================================
+
     const email =
         `${username}@azima.local`;
 
 
     try{
+
+        console.log(
+            "Trying login with:",
+            email
+        );
+
 
         const {
             data,
@@ -802,6 +823,10 @@ async function login(){
 
                 });
 
+
+        // ====================================================
+        // AUTH ERROR
+        // ====================================================
 
         if(error){
 
@@ -824,6 +849,10 @@ async function login(){
         }
 
 
+        // ====================================================
+        // NO USER
+        // ====================================================
+
         if(!data.user){
 
             show(
@@ -838,6 +867,16 @@ async function login(){
         }
 
 
+        console.log(
+            "Auth login successful:",
+            data.user.id
+        );
+
+
+        // ====================================================
+        // GET PROFILE
+        // ====================================================
+
         const profile =
             await getAdminProfile(
                 data.user.id
@@ -845,6 +884,12 @@ async function login(){
 
 
         if(!profile){
+
+            console.error(
+                "AUTH OK BUT ADMIN PROFILE NOT FOUND:",
+                data.user.id
+            );
+
 
             await supabaseClient
                 .auth
@@ -865,6 +910,10 @@ async function login(){
 
         }
 
+
+        // ====================================================
+        // CHECK ACTIVE
+        // ====================================================
 
         if(!profile.active){
 
@@ -888,13 +937,17 @@ async function login(){
         }
 
 
+        // ====================================================
+        // SUCCESS
+        // ====================================================
+
         currentAdmin =
             profile;
 
 
         console.log(
-            "Logged in admin:",
-            currentAdmin
+            "Admin profile:",
+            profile
         );
 
 
@@ -936,9 +989,12 @@ async function logout(){
         .signOut();
 
 
-    currentAdmin = null;
+    currentAdmin =
+        null;
 
-    dashboardInitialized = false;
+
+    dashboardInitialized =
+        false;
 
 
     showLogin();
@@ -996,7 +1052,10 @@ if(adminUsername){
         "keydown",
         event => {
 
-            if(event.key === "Enter"){
+            if(
+                event.key ===
+                "Enter"
+            ){
 
                 login();
 
@@ -1014,7 +1073,10 @@ if(adminPassword){
         "keydown",
         event => {
 
-            if(event.key === "Enter"){
+            if(
+                event.key ===
+                "Enter"
+            ){
 
                 login();
 
@@ -1040,7 +1102,8 @@ supabaseClient
 
             if(!session){
 
-                currentAdmin = null;
+                currentAdmin =
+                    null;
 
                 showLogin();
 
@@ -1065,9 +1128,12 @@ supabaseClient
                     .signOut();
 
 
-                currentAdmin = null;
+                currentAdmin =
+                    null;
+
 
                 showLogin();
+
 
                 return;
 
@@ -1080,8 +1146,57 @@ supabaseClient
 
             showDashboard();
 
+
+            await initDashboard();
+
         }
     );
+
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
+
+function escapeHTML(
+    value
+){
+
+    return String(
+        value ?? ""
+    )
+    .replace(
+        /&/g,
+        "&amp;"
+    )
+    .replace(
+        /</g,
+        "&lt;"
+    )
+    .replace(
+        />/g,
+        "&gt;"
+    )
+    .replace(
+        /"/g,
+        "&quot;"
+    )
+    .replace(
+        /'/g,
+        "&#039;"
+    );
+
+}
+
+
+// ============================================================
+// START
+// ============================================================
+
+// ============================================================
+// AL AZIMA 14 - ADMIN DASHBOARD
+// PART 2
+// Settings + Bookings + Dashboard Rendering
+// ============================================================
 
 
 // ============================================================
@@ -1201,10 +1316,6 @@ async function loadSettings(){
 
 async function saveSettings(){
 
-    if(!isAdmin())
-        return;
-
-
     const dayPriceElement =
         document.getElementById(
             "dayPrice"
@@ -1280,6 +1391,9 @@ async function saveSettings(){
 
     if(error){
 
+        console.error(error);
+
+
         show(
             "settingsMessage",
             "حدث خطأ أثناء حفظ الأسعار: " +
@@ -1318,10 +1432,6 @@ async function saveSettings(){
 
 async function saveOwners(){
 
-    if(!isAdmin())
-        return;
-
-
     const ownerOneElement =
         document.getElementById(
             "ownerOne"
@@ -1345,11 +1455,15 @@ async function saveOwners(){
 
 
     const ownerOne =
-        ownerOneElement.value.trim();
+        ownerOneElement
+            .value
+            .trim();
 
 
     const ownerTwo =
-        ownerTwoElement.value.trim();
+        ownerTwoElement
+            .value
+            .trim();
 
 
     const {
@@ -1373,6 +1487,9 @@ async function saveOwners(){
 
 
     if(error){
+
+        console.error(error);
+
 
         show(
             "ownersMessage",
@@ -1407,20 +1524,36 @@ async function saveOwners(){
 // SETTINGS BUTTONS
 // ============================================================
 
-document
-    .getElementById("saveSettingsBtn")
-    ?.addEventListener(
+const saveSettingsBtn =
+    document.getElementById(
+        "saveSettingsBtn"
+    );
+
+
+if(saveSettingsBtn){
+
+    saveSettingsBtn.addEventListener(
         "click",
         saveSettings
     );
 
+}
 
-document
-    .getElementById("saveOwnersBtn")
-    ?.addEventListener(
+
+const saveOwnersBtn =
+    document.getElementById(
+        "saveOwnersBtn"
+    );
+
+
+if(saveOwnersBtn){
+
+    saveOwnersBtn.addEventListener(
         "click",
         saveOwners
     );
+
+}
 
 
 // ============================================================
@@ -1487,8 +1620,10 @@ async function loadBookings(){
 
     bookings =
         Array.isArray(data)
-            ? data
-            : [];
+            ?
+            data
+            :
+            [];
 
 
     return true;
@@ -1497,7 +1632,7 @@ async function loadBookings(){
 
 
 // ============================================================
-// RENDER
+// RENDER DASHBOARD
 // ============================================================
 
 async function render(){
@@ -1528,6 +1663,10 @@ async function render(){
         localISODate();
 
 
+    // ========================================================
+    // TODAY BOOKINGS
+    // ========================================================
+
     const todayBookings =
         active.filter(
             booking =>
@@ -1538,6 +1677,10 @@ async function render(){
         );
 
 
+    // ========================================================
+    // UPCOMING BOOKINGS
+    // ========================================================
+
     const upcomingBookings =
         active.filter(
             booking =>
@@ -1545,6 +1688,10 @@ async function render(){
                 today
         );
 
+
+    // ========================================================
+    // STATISTICS
+    // ========================================================
 
     const todayCountElement =
         document.getElementById(
@@ -1591,7 +1738,8 @@ async function render(){
 
                     total +
                     Number(
-                        booking.price || 0
+                        booking.price ||
+                        0
                     ),
 
                 0
@@ -1602,7 +1750,7 @@ async function render(){
 
 
     // ========================================================
-    // SLOTS
+    // ADMIN SLOTS
     // ========================================================
 
     const dayBookings =
@@ -1668,26 +1816,40 @@ async function render(){
                 div.innerHTML = `
 
                     <strong>
+
                         ${minutesToTime(
-                            timeToMinutes(start)
+                            timeToMinutes(
+                                start
+                            )
                         )}
+
                         -
+
                         ${minutesToTime(
-                            timeToMinutes(slotEnd)
+                            timeToMinutes(
+                                slotEnd
+                            )
                         )}
+
                     </strong>
+
 
                     <small>
 
                         ${
                             found
+
                             ?
+
                             "🔴 " +
                             escapeHTML(
                                 found.customer_name
                             )
+
                             :
+
                             "🟢 متاح"
+
                         }
 
                     </small>
@@ -1736,7 +1898,10 @@ async function render(){
     bookings
         .slice()
         .sort(
-            (a,b) => {
+            (
+                a,
+                b
+            ) => {
 
                 const first =
                     a.booking_date +
@@ -1767,23 +1932,46 @@ async function render(){
                     "booking-item";
 
 
+                // =================================================
+                // STATUS
+                // =================================================
+
                 const statusText =
-                    booking.status === "pending"
+                    booking.status ===
+                    "pending"
+
                     ?
+
                     "في انتظار التأكيد"
+
                     :
-                    booking.status === "confirmed"
+
+                    booking.status ===
+                    "confirmed"
+
                     ?
+
                     "مؤكد"
+
                     :
+
                     "ملغي";
 
 
+                // =================================================
+                // TYPE
+                // =================================================
+
                 const typeText =
-                    booking.booking_type === "weekly"
+                    booking.booking_type ===
+                    "weekly"
+
                     ?
+
                     "🔄 حجز أسبوعي"
+
                     :
+
                     "حجز لمرة واحدة";
 
 
@@ -1796,11 +1984,17 @@ async function render(){
                         )}
 
                         ${
-                            booking.booking_type === "weekly"
+                            booking.booking_type ===
+                            "weekly"
+
                             ?
+
                             " 🔄"
+
                             :
+
                             ""
+
                         }
 
                     </strong>
@@ -1809,13 +2003,16 @@ async function render(){
                     <small>
 
                         📅
+
                         ${dateLabel(
                             booking.booking_date
                         )}
 
                         <br>
 
+
                         ⏰
+
                         ${minutesToTime(
                             timeToMinutes(
                                 booking.start_time
@@ -1832,60 +2029,96 @@ async function render(){
 
                         <br>
 
+
                         ⏱️
+
                         ${
                             Number(
                                 booking.duration_minutes
                             ) === 60
+
                             ?
+
                             "ساعة"
+
                             :
+
                             Number(
                                 booking.duration_minutes
                             ) === 90
+
                             ?
+
                             "ساعة ونصف"
+
                             :
+
                             "ساعتان"
+
                         }
+
 
                         <br>
 
+
                         📱
+
                         ${escapeHTML(
                             booking.customer_phone
                         )}
 
+
                         <br>
+
 
                         💰
+
                         ${Number(
-                            booking.price || 0
+                            booking.price ||
+                            0
                         )}
+
                         جنيه
+
 
                         <br>
 
+
                         📌
+
                         ${typeText}
 
+
                         ${
-                            booking.booking_type === "weekly"
+                            booking.booking_type ===
+                            "weekly"
+
                             ?
+
                             `
+
                             <br>
+
                             🗓️ حتى:
+
                             ${dateLabel(
                                 booking.weekly_end_date
                             )}
+
                             `
+
                             :
+
                             ""
+
                         }
+
 
                         <br>
 
+
                         الحالة:
+
                         ${statusText}
 
                     </small>
@@ -1893,33 +2126,54 @@ async function render(){
 
                     <div class="actions">
 
+
                         ${
-                            booking.status !== "confirmed"
+                            booking.status !==
+                            "confirmed"
+
                             ?
+
                             `
+
                             <button
                                 data-action="confirm"
                             >
+
                                 تأكيد
+
                             </button>
+
                             `
+
                             :
+
                             ""
+
                         }
 
 
                         ${
-                            booking.status !== "cancelled"
+                            booking.status !==
+                            "cancelled"
+
                             ?
+
                             `
+
                             <button
                                 data-action="cancel"
                             >
+
                                 إلغاء
+
                             </button>
+
                             `
+
                             :
+
                             ""
+
                         }
 
 
@@ -1927,16 +2181,25 @@ async function render(){
                             data-action="delete"
                             class="danger-btn"
                         >
+
                             حذف
+
                         </button>
+
 
                     </div>
 
                 `;
 
 
+                // =================================================
+                // ACTION BUTTONS
+                // =================================================
+
                 item
-                    .querySelectorAll("button")
+                    .querySelectorAll(
+                        "button"
+                    )
                     .forEach(
                         button => {
 
@@ -1948,7 +2211,10 @@ async function render(){
                                         button.dataset.action;
 
 
-                                    if(action === "confirm"){
+                                    if(
+                                        action ===
+                                        "confirm"
+                                    ){
 
                                         await updateBookingStatus(
                                             booking.id,
@@ -1958,7 +2224,10 @@ async function render(){
                                     }
 
 
-                                    if(action === "cancel"){
+                                    if(
+                                        action ===
+                                        "cancel"
+                                    ){
 
                                         await updateBookingStatus(
                                             booking.id,
@@ -1968,7 +2237,10 @@ async function render(){
                                     }
 
 
-                                    if(action === "delete"){
+                                    if(
+                                        action ===
+                                        "delete"
+                                    ){
 
                                         await deleteBooking(
                                             booking
@@ -2002,17 +2274,15 @@ async function updateBookingStatus(
     status
 ){
 
-    if(!isAdmin())
-        return;
-
-
     const {
         error
     } =
         await supabaseClient
             .from("bookings")
             .update({
+
                 status
+
             })
             .eq(
                 "id",
@@ -2048,17 +2318,13 @@ async function deleteBooking(
     booking
 ){
 
-    if(!isAdmin())
-        return;
-
-
-    const confirmed =
+    const confirmDelete =
         confirm(
-            `هل تريد حذف حجز ${booking.customer_name}؟`
+            `هل تريد حذف حجز ${booking.customer_name؟}؟`
         );
 
 
-    if(!confirmed)
+    if(!confirmDelete)
         return;
 
 
@@ -2095,12 +2361,18 @@ async function deleteBooking(
 
 
 // ============================================================
-// DELETE TEST
+// DELETE TEST BOOKING
 // ============================================================
 
-document
-    .getElementById("clearDemoBtn")
-    ?.addEventListener(
+const clearDemoBtn =
+    document.getElementById(
+        "clearDemoBtn"
+    );
+
+
+if(clearDemoBtn){
+
+    clearDemoBtn.addEventListener(
         "click",
         async () => {
 
@@ -2124,13 +2396,13 @@ document
             }
 
 
-            const confirmed =
+            const confirmDelete =
                 confirm(
                     "هل تريد حذف سجل الاختبار فقط؟"
                 );
 
 
-            if(!confirmed)
+            if(!confirmDelete)
                 return;
 
 
@@ -2141,507 +2413,74 @@ document
         }
     );
 
+}
+
 
 // ============================================================
-// REPORT HELPERS
+// DATE CHANGE
 // ============================================================
 
-function formatReportDate(
-    date
-){
+const adminDate =
+    document.getElementById(
+        "adminDate"
+    );
 
-    return new Intl.DateTimeFormat(
-        "ar-EG",
-        {
-            weekday:"long",
-            day:"numeric",
-            month:"long",
-            year:"numeric"
-        }
-    ).format(
-        new Date(
-            date + "T12:00:00"
-        )
+
+if(adminDate){
+
+    adminDate.addEventListener(
+        "change",
+        render
     );
 
 }
 
 
-function addDays(
-    dateString,
-    days
-){
+// ============================================================
+// INIT DASHBOARD
+// ============================================================
 
-    const d =
-        new Date(
-            dateString +
-            "T12:00:00"
+async function initDashboard(){
+
+    if(
+        dashboardInitialized
+    ){
+
+        return;
+
+    }
+
+
+    dashboardInitialized =
+        true;
+
+
+    const adminDateElement =
+        document.getElementById(
+            "adminDate"
         );
 
 
-    d.setDate(
-        d.getDate() + days
-    );
+    if(adminDateElement){
 
-
-    return localISODate(d);
-
-}
-
-
-// ============================================================
-// WEEK RANGE
-// ============================================================
-
-function getWeekRange(){
-
-    const today =
-        new Date();
-
-
-    const day =
-        today.getDay();
-
-
-    const diffToSaturday =
-        day === 6
-            ? 0
-            : day + 1;
-
-
-    const start =
-        new Date(today);
-
-
-    start.setDate(
-        today.getDate() -
-        diffToSaturday
-    );
-
-
-    const end =
-        new Date(start);
-
-
-    end.setDate(
-        start.getDate() + 6
-    );
-
-
-    return {
-
-        start:
-            localISODate(start),
-
-        end:
-            localISODate(end)
-
-    };
-
-}
-
-
-// ============================================================
-// MONTH RANGE
-// ============================================================
-
-function getMonthRange(){
-
-    const today =
-        new Date();
-
-
-    const start =
-        new Date(
-            today.getFullYear(),
-            today.getMonth(),
-            1
-        );
-
-
-    const end =
-        new Date(
-            today.getFullYear(),
-            today.getMonth() + 1,
-            0
-        );
-
-
-    return {
-
-        start:
-            localISODate(start),
-
-        end:
-            localISODate(end)
-
-    };
-
-}
-
-
-// ============================================================
-// REPORT BOOKINGS
-// ============================================================
-
-function getReportBookings(
-    startDate,
-    endDate
-){
-
-    const result = [];
-
-    const seen =
-        new Set();
-
-
-    bookings.forEach(
-        booking => {
-
-            if(
-                booking.status ===
-                "cancelled"
-            ){
-
-                return;
-
-            }
-
-
-            if(
-                booking.booking_type !==
-                "weekly"
-            ){
-
-                if(
-                    booking.booking_date >= startDate &&
-                    booking.booking_date <= endDate
-                ){
-
-                    const key =
-                        `${booking.id}_${booking.booking_date}`;
-
-
-                    if(!seen.has(key)){
-
-                        seen.add(key);
-
-
-                        result.push({
-
-                            ...booking,
-
-                            reportDate:
-                                booking.booking_date
-
-                        });
-
-                    }
-
-                }
-
-
-                return;
-
-            }
-
-
-            let current =
-                booking.booking_date;
-
-
-            if(current > endDate)
-                return;
-
-
-            while(current <= endDate){
-
-                const insideRange =
-                    current >= startDate &&
-                    current <= endDate;
-
-
-                const insideEnd =
-                    !booking.weekly_end_date ||
-                    current <= booking.weekly_end_date;
-
-
-                if(
-                    insideRange &&
-                    insideEnd
-                ){
-
-                    const key =
-                        `${booking.id}_${current}`;
-
-
-                    if(!seen.has(key)){
-
-                        seen.add(key);
-
-
-                        result.push({
-
-                            ...booking,
-
-                            reportDate:
-                                current
-
-                        });
-
-                    }
-
-                }
-
-
-                current =
-                    addDays(
-                        current,
-                        7
-                    );
-
-            }
-
-        }
-    );
-
-
-    result.sort(
-        (a,b) => {
-
-            const first =
-                a.reportDate +
-                String(
-                    a.start_time || ""
-                );
-
-
-            const second =
-                b.reportDate +
-                String(
-                    b.start_time || ""
-                );
-
-
-            return first.localeCompare(
-                second
-            );
-
-        }
-    );
-
-
-    return result;
-
-}
-
-
-// ============================================================
-// OPEN REPORT
-// ============================================================
-
-function openReport(
-    type
-){
-
-    let range;
-
-    let title;
-
-
-    if(type === "daily"){
-
-        const today =
+        adminDateElement.value =
             localISODate();
 
-
-        range = {
-
-            start: today,
-
-            end: today
-
-        };
-
-
-        title =
-            "تقرير اليوم";
-
     }
 
 
-    else if(type === "weekly"){
+    // ========================================================
+    // LOAD SETTINGS
+    // ========================================================
 
-        range =
-            getWeekRange();
-
-
-        title =
-            "تقرير الأسبوع";
-
-    }
+    const settingsLoaded =
+        await loadSettings();
 
 
-    else if(type === "monthly"){
+    if(!settingsLoaded){
 
-        range =
-            getMonthRange();
-
-
-        title =
-            "تقرير الشهر";
-
-    }
-
-
-    else{
-
-        return;
-
-    }
-
-
-    const reportBookings =
-        getReportBookings(
-            range.start,
-            range.end
-        );
-
-
-    const totalRevenue =
-        reportBookings.reduce(
-            (
-                total,
-                booking
-            ) =>
-                total +
-                Number(
-                    booking.price || 0
-                ),
-            0
-        );
-
-
-    const totalMinutes =
-        reportBookings.reduce(
-            (
-                total,
-                booking
-            ) =>
-                total +
-                Number(
-                    booking.duration_minutes || 0
-                ),
-            0
-        );
-
-
-    const totalHours =
-        totalMinutes / 60;
-
-
-    const reportRows =
-        reportBookings
-            .map(
-                booking => `
-
-                    <tr>
-
-                        <td>
-                            ${escapeHTML(
-                                booking.customer_name
-                            )}
-                        </td>
-
-                        <td>
-                            ${formatReportDate(
-                                booking.reportDate
-                            )}
-                        </td>
-
-                        <td>
-                            ${minutesToTime(
-                                timeToMinutes(
-                                    booking.start_time
-                                )
-                            )}
-                        </td>
-
-                        <td>
-                            ${minutesToTime(
-                                timeToMinutes(
-                                    booking.end_time
-                                )
-                            )}
-                        </td>
-
-                        <td>
-                            ${
-                                Number(
-                                    booking.duration_minutes || 0
-                                ) / 60
-                            }
-                        </td>
-
-                        <td>
-                            ${Number(
-                                booking.price || 0
-                            )}
-                            جنيه
-                        </td>
-
-                        <td>
-
-                            ${
-                                booking.status === "confirmed"
-                                ?
-                                "مؤكد"
-                                :
-                                "في انتظار التأكيد"
-                            }
-
-                        </td>
-
-                    </tr>
-
-                `
-            )
-            .join("");
-
-
-    const emptyRow = `
-
-        <tr>
-
-            <td
-                colspan="7"
-                style="
-                    text-align:center;
-                    padding:30px;
-                "
-            >
-
-                لا توجد حجوزات في هذه الفترة.
-
-            </td>
-
-        </tr>
-
-    `;
-
-
-    const reportWindow =
-        window.open(
-            "",
-            "_blank"
-        );
-
-
-    if(!reportWindow){
-
-        alert(
-            "المتصفح منع فتح صفحة التقرير."
-        );
+        dashboardInitialized =
+            false;
 
 
         return;
@@ -2649,304 +2488,110 @@ function openReport(
     }
 
 
-    reportWindow.document.write(`
+    // ========================================================
+    // FILL SETTINGS INPUTS
+    // ========================================================
 
-        <!DOCTYPE html>
+    const dayPriceElement =
+        document.getElementById(
+            "dayPrice"
+        );
 
-        <html
-            lang="ar"
-            dir="rtl"
-        >
 
-        <head>
+    const nightPriceElement =
+        document.getElementById(
+            "nightPrice"
+        );
 
-            <meta charset="UTF-8">
 
-            <meta
-                name="viewport"
-                content="width=device-width, initial-scale=1.0"
-            >
+    const ownerOneElement =
+        document.getElementById(
+            "ownerOne"
+        );
 
-            <title>
-                ${escapeHTML(title)}
-                - ملعب العزيمة 14
-            </title>
 
-            <link
-                href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap"
-                rel="stylesheet"
-            >
+    const ownerTwoElement =
+        document.getElementById(
+            "ownerTwo"
+        );
 
-            <style>
 
-                *{
-                    box-sizing:border-box;
-                }
+    if(dayPriceElement){
 
-                body{
+        dayPriceElement.value =
+            settings.dayPrice;
 
-                    margin:0;
+    }
 
-                    padding:30px;
 
-                    font-family:
-                        Tajawal,
-                        Arial,
-                        sans-serif;
+    if(nightPriceElement){
 
-                    background:#fff;
+        nightPriceElement.value =
+            settings.nightPrice;
 
-                    color:#111;
+    }
 
-                }
 
-                .report{
+    if(ownerOneElement){
 
-                    max-width:1100px;
+        ownerOneElement.value =
+            settings.ownerOne;
 
-                    margin:auto;
+    }
 
-                }
 
-                .header{
+    if(ownerTwoElement){
 
-                    text-align:center;
+        ownerTwoElement.value =
+            settings.ownerTwo;
 
-                    margin-bottom:25px;
+    }
 
-                    border-bottom:
-                        2px solid #111;
 
-                    padding-bottom:20px;
+    // ========================================================
+    // LOAD BOOKINGS
+    // ========================================================
 
-                }
+    const bookingsLoaded =
+        await loadBookings();
 
-                .header h1{
 
-                    margin:
-                        0 0 8px;
+    if(!bookingsLoaded){
 
-                    font-size:28px;
+        dashboardInitialized =
+            false;
 
-                }
 
-                .header h2{
+        return;
 
-                    margin:0;
+    }
 
-                    font-size:21px;
 
-                    font-weight:500;
+    // ========================================================
+    // RENDER
+    // ========================================================
 
-                }
+    await render();
 
-                .period{
 
-                    margin-top:10px;
+    // ========================================================
+    // LOAD USERS
+    // ========================================================
+    // سيتم التحكم في ظهور هذا القسم في الجزء الرابع
 
-                    font-size:15px;
+    if(
+        typeof loadAdminUsers ===
+        "function"
+    ){
 
-                }
+        await loadAdminUsers();
 
-                .summary{
+    }
 
-                    display:grid;
+}
 
-                    grid-template-columns:
-                        repeat(3,1fr);
 
-                    gap:12px;
+// ============================================================
+// DELETE TEST END
+// ============================================================
 
-                    margin-bottom:25px;
-
-                }
-
-                .summary-box{
-
-                    border:
-                        1px solid #ccc;
-
-                    padding:15px;
-
-                    text-align:center;
-
-                    border-radius:8px;
-
-                }
-
-                .summary-box strong{
-
-                    display:block;
-
-                    font-size:22px;
-
-                    margin-top:7px;
-
-                }
-
-                table{
-
-                    width:100%;
-
-                    border-collapse:collapse;
-
-                    margin-top:15px;
-
-                }
-
-                th,
-                td{
-
-                    border:
-                        1px solid #ccc;
-
-                    padding:10px 8px;
-
-                    text-align:center;
-
-                }
-
-                th{
-
-                    background:#f1f1f1;
-
-                    font-weight:bold;
-
-                }
-
-                .print-btn{
-
-                    display:block;
-
-                    margin:
-                        25px auto;
-
-                    padding:
-                        12px 30px;
-
-                    border:0;
-
-                    border-radius:8px;
-
-                    background:#111;
-
-                    color:#fff;
-
-                    font-size:16px;
-
-                    cursor:pointer;
-
-                }
-
-                .footer{
-
-                    margin-top:30px;
-
-                    text-align:center;
-
-                    font-size:13px;
-
-                    color:#666;
-
-                }
-
-                @media print{
-
-                    body{
-                        padding:0;
-                    }
-
-                    .print-btn{
-                        display:none;
-                    }
-
-                }
-
-                @media(max-width:700px){
-
-                    body{
-                        padding:10px;
-                    }
-
-                    .summary{
-                        grid-template-columns:1fr;
-                    }
-
-                    table{
-                        font-size:11px;
-                    }
-
-                    th,
-                    td{
-                        padding:7px 4px;
-                    }
-
-                }
-
-            </style>
-
-        </head>
-
-
-        <body>
-
-            <div class="report">
-
-                <div class="header">
-
-                    <h1>
-                        ⚽ ملعب العزيمة 14
-                    </h1>
-
-                    <h2>
-                        ${escapeHTML(title)}
-                    </h2>
-
-                    <div class="period">
-
-                        من
-
-                        <strong>
-                            ${formatReportDate(
-                                range.start
-                            )}
-                        </strong>
-
-                        إلى
-
-                        <strong>
-                            ${formatReportDate(
-                                range.end
-                            )}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div class="summary">
-
-                    <div class="summary-box">
-
-                        عدد الحجوزات
-
-                        <strong>
-                            ${reportBookings.length}
-                        </strong>
-
-                    </div>
-
-
-                    <div class="summary-box">
-
-                        إجمالي الساعات
-
-                        <strong>
-                            ${totalHours}
-                        </strong>
-
-                    </div>
-
-
-                    <div class="summary-b
