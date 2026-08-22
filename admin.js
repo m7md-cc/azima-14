@@ -1,10 +1,12 @@
 // ============================================================
 // AL AZIMA 14 - ADMIN DASHBOARD
-// Supabase Auth + Supabase Database + Reports
+// Supabase Auth + Database + Reports
 // ============================================================
 
 
-// ================= SUPABASE =================
+// ============================================================
+// SUPABASE
+// ============================================================
 
 const SUPABASE_URL =
     "https://yoflvktmovseppukqdio.supabase.co";
@@ -12,35 +14,45 @@ const SUPABASE_URL =
 const SUPABASE_KEY =
     "sb_publishable_L9U9B8viS8bD85N1kmUm5g_qM5YpQ3a";
 
+
 const supabaseClient =
     window.supabase.createClient(
         SUPABASE_URL,
         SUPABASE_KEY
     );
 
-// ============================================================
-// AUTH
-// ============================================================
 
-// Auth UID الحقيقي لحساب admin في Supabase Auth
+// ============================================================
+// GLOBAL DATA
+// ============================================================
 
 let currentAdmin = null;
 
 let bookings = [];
 
+
 let settings = {
 
     dayPrice: 70,
+
     nightPrice: 80,
+
     nightStart: "19:30",
+
     open: "17:00",
+
     close: "01:00",
+
     ownerOne: "201116733739",
+
     ownerTwo: ""
 
 };
 
-// ================= ELEMENTS =================
+
+// ============================================================
+// ELEMENTS
+// ============================================================
 
 const loginPanel =
     document.getElementById("loginPanel");
@@ -55,9 +67,371 @@ const logoutBtn =
     document.getElementById("logoutBtn");
 
 
-// ================= GET USER PROFILE =================
+// ============================================================
+// MESSAGE HELPER
+// ============================================================
 
-async function getAdminProfile(authUserId){
+function show(
+    elementId,
+    message,
+    error = false
+){
+
+    const element =
+        document.getElementById(
+            elementId
+        );
+
+
+    if(!element)
+        return;
+
+
+    element.textContent =
+        message;
+
+
+    element.classList.remove(
+        "hidden"
+    );
+
+
+    element.classList.toggle(
+        "error",
+        error
+    );
+
+
+    if(!error){
+
+        element.classList.add(
+            "success"
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// DATE HELPERS
+// ============================================================
+
+function localISODate(
+    date = new Date()
+){
+
+    const year =
+        date.getFullYear();
+
+    const month =
+        String(
+            date.getMonth() + 1
+        ).padStart(
+            2,
+            "0"
+        );
+
+    const day =
+        String(
+            date.getDate()
+        ).padStart(
+            2,
+            "0"
+        );
+
+
+    return `${year}-${month}-${day}`;
+
+}
+
+
+function dateLabel(
+    dateString
+){
+
+    if(!dateString)
+        return "";
+
+
+    return new Intl.DateTimeFormat(
+        "ar-EG",
+        {
+            weekday: "short",
+            day: "numeric",
+            month: "long"
+        }
+    ).format(
+        new Date(
+            dateString + "T12:00:00"
+        )
+    );
+
+}
+
+
+// ============================================================
+// TIME HELPERS
+// ============================================================
+
+function timeToMinutes(
+    time
+){
+
+    if(!time)
+        return 0;
+
+
+    const parts =
+        String(time)
+            .substring(0, 5)
+            .split(":");
+
+
+    const hours =
+        Number(parts[0] || 0);
+
+    const minutes =
+        Number(parts[1] || 0);
+
+
+    return (
+        hours * 60 +
+        minutes
+    );
+
+}
+
+
+function minutesToTime(
+    minutes
+){
+
+    minutes =
+        Number(minutes);
+
+
+    minutes =
+        ((minutes % 1440) + 1440) %
+        1440;
+
+
+    const hours =
+        Math.floor(
+            minutes / 60
+        );
+
+
+    const mins =
+        minutes % 60;
+
+
+    return (
+        String(hours).padStart(2, "0") +
+        ":" +
+        String(mins).padStart(2, "0")
+    );
+
+}
+
+
+function endTime(
+    start,
+    duration
+){
+
+    return minutesToTime(
+        timeToMinutes(start) +
+        Number(duration)
+    );
+
+}
+
+
+// ============================================================
+// SLOT HELPERS
+// ============================================================
+
+function makeSlots(){
+
+    const result = [];
+
+
+    const opening =
+        timeToMinutes(
+            settings.open
+        );
+
+
+    const closing =
+        timeToMinutes(
+            settings.close
+        );
+
+
+    let start =
+        opening;
+
+
+    while(true){
+
+        result.push(
+            minutesToTime(start)
+        );
+
+
+        start += 60;
+
+
+        if(
+            start >=
+            closing
+        ){
+
+            break;
+
+        }
+
+    }
+
+
+    return result;
+
+}
+
+
+// ============================================================
+// OVERLAP
+// ============================================================
+
+function overlap(
+    startA,
+    endA,
+    startB,
+    endB
+){
+
+    let aStart =
+        timeToMinutes(startA);
+
+    let aEnd =
+        timeToMinutes(endA);
+
+    let bStart =
+        timeToMinutes(startB);
+
+    let bEnd =
+        timeToMinutes(endB);
+
+
+    // التعامل مع المواعيد التي تتجاوز منتصف الليل
+
+    if(aEnd <= aStart)
+        aEnd += 1440;
+
+    if(bEnd <= bStart)
+        bEnd += 1440;
+
+
+    return (
+        aStart < bEnd &&
+        bStart < aEnd
+    );
+
+}
+
+
+// ============================================================
+// WEEKLY BOOKING CHECK
+// ============================================================
+
+function affects(
+    booking,
+    date
+){
+
+    if(
+        booking.status ===
+        "cancelled"
+    ){
+
+        return false;
+
+    }
+
+
+    if(
+        booking.booking_type !==
+        "weekly"
+    ){
+
+        return (
+            booking.booking_date ===
+            date
+        );
+
+    }
+
+
+    if(
+        date <
+        booking.booking_date
+    ){
+
+        return false;
+
+    }
+
+
+    if(
+        booking.weekly_end_date &&
+        date >
+        booking.weekly_end_date
+    ){
+
+        return false;
+
+    }
+
+
+    const start =
+        new Date(
+            booking.booking_date +
+            "T12:00:00"
+        );
+
+
+    const target =
+        new Date(
+            date +
+            "T12:00:00"
+        );
+
+
+    const difference =
+        Math.round(
+            (
+                target - start
+            ) /
+            86400000
+        );
+
+
+    return (
+        difference >= 0 &&
+        difference % 7 === 0
+    );
+
+}
+
+
+// ============================================================
+// ADMIN PROFILE
+// ============================================================
+
+async function getAdminProfile(
+    authUserId
+){
 
     const {
         data,
@@ -96,133 +470,191 @@ async function getAdminProfile(authUserId){
 }
 
 
-// ================= CHECK SESSION =================
-
-async function checkSession(){
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .auth
-            .getSession();
-
-
-    if(error){
-
-        console.error(error);
-
-        showLogin();
-
-        return false;
-
-    }
-
-
-    const session =
-        data.session;
-
-
-    if(!session){
-
-        showLogin();
-
-        return false;
-
-    }
-
-
-    const profile =
-        await getAdminProfile(
-            session.user.id
-        );
-
-
-    if(!profile){
-
-        await supabaseClient
-            .auth
-            .signOut();
-
-        showLogin();
-
-        show(
-            "loginMessage",
-            "الحساب غير مسجل في لوحة الإدارة.",
-            true
-        );
-
-        return false;
-
-    }
-
-
-    if(!profile.active){
-
-        await supabaseClient
-            .auth
-            .signOut();
-
-        showLogin();
-
-        show(
-            "loginMessage",
-            "هذا الحساب معطل حاليًا.",
-            true
-        );
-
-        return false;
-
-    }
-
-
-    currentAdmin =
-        profile;
-
-
-    showDashboard();
-
-    return true;
-
-}
-
-
-// ================= SHOW LOGIN =================
+// ============================================================
+// SHOW LOGIN
+// ============================================================
 
 function showLogin(){
 
-    if(loginPanel)
+    if(loginPanel){
+
         loginPanel.classList.remove(
             "hidden"
         );
 
-    if(dashboard)
+    }
+
+
+    if(dashboard){
+
         dashboard.classList.add(
             "hidden"
         );
 
+    }
+
 }
 
 
-// ================= SHOW DASHBOARD =================
+// ============================================================
+// SHOW DASHBOARD
+// ============================================================
 
 function showDashboard(){
 
-    if(loginPanel)
+    if(loginPanel){
+
         loginPanel.classList.add(
             "hidden"
         );
 
-    if(dashboard)
+    }
+
+
+    if(dashboard){
+
         dashboard.classList.remove(
             "hidden"
         );
 
+    }
+
 }
 
 
-// ================= LOGIN =================
+// ============================================================
+// CHECK SESSION
+// ============================================================
+
+async function checkSession(){
+
+    try{
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .auth
+                .getSession();
+
+
+        if(error){
+
+            console.error(error);
+
+            showLogin();
+
+            return false;
+
+        }
+
+
+        const session =
+            data.session;
+
+
+        if(!session){
+
+            showLogin();
+
+            return false;
+
+        }
+
+
+        const profile =
+            await getAdminProfile(
+                session.user.id
+            );
+
+
+        if(!profile){
+
+            await supabaseClient
+                .auth
+                .signOut();
+
+
+            showLogin();
+
+
+            show(
+                "loginMessage",
+                "الحساب غير مسجل في لوحة الإدارة.",
+                true
+            );
+
+
+            return false;
+
+        }
+
+
+        if(!profile.active){
+
+            await supabaseClient
+                .auth
+                .signOut();
+
+
+            showLogin();
+
+
+            show(
+                "loginMessage",
+                "هذا الحساب معطل حاليًا.",
+                true
+            );
+
+
+            return false;
+
+        }
+
+
+        currentAdmin =
+            profile;
+
+
+        showDashboard();
+
+
+        await initDashboard();
+
+
+        return true;
+
+    }
+
+    catch(error){
+
+        console.error(
+            "Session error:",
+            error
+        );
+
+
+        showLogin();
+
+
+        show(
+            "loginMessage",
+            "حدث خطأ أثناء التحقق من تسجيل الدخول.",
+            true
+        );
+
+
+        return false;
+
+    }
+
+}
+
+
+// ============================================================
+// LOGIN
+// ============================================================
 
 async function login(){
 
@@ -296,7 +728,7 @@ async function login(){
 
 
     /*
-        نحن نستخدم نظامًا داخليًا للإيميلات:
+        Username → Email داخلي
 
         admin
         ↓
@@ -305,109 +737,142 @@ async function login(){
         ahmed
         ↓
         ahmed@azima.local
-
-        المستخدم يرى Username فقط.
     */
+
 
     const email =
         `${username}@azima.local`;
 
 
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .auth
-            .signInWithPassword({
+    try{
 
-                email,
-                password
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .auth
+                .signInWithPassword({
 
-            });
+                    email,
+
+                    password
+
+                });
 
 
-    if(error){
+        if(error){
 
-        console.error(error);
+            console.error(
+                "Login error:",
+                error
+            );
 
-        show(
-            "loginMessage",
-            "اسم المستخدم أو كلمة المرور غير صحيحة.",
-            true
-        );
 
-        return;
+            show(
+                "loginMessage",
+                "اسم المستخدم أو كلمة المرور غير صحيحة.",
+                true
+            );
+
+
+            return;
+
+        }
+
+
+        if(!data.user){
+
+            show(
+                "loginMessage",
+                "تعذر تسجيل الدخول.",
+                true
+            );
+
+
+            return;
+
+        }
+
+
+        const profile =
+            await getAdminProfile(
+                data.user.id
+            );
+
+
+        if(!profile){
+
+            await supabaseClient
+                .auth
+                .signOut();
+
+
+            show(
+                "loginMessage",
+                "هذا الحساب غير مسجل في لوحة الإدارة.",
+                true
+            );
+
+
+            return;
+
+        }
+
+
+        if(!profile.active){
+
+            await supabaseClient
+                .auth
+                .signOut();
+
+
+            show(
+                "loginMessage",
+                "هذا الحساب معطل حاليًا.",
+                true
+            );
+
+
+            return;
+
+        }
+
+
+        currentAdmin =
+            profile;
+
+
+        showDashboard();
+
+
+        await initDashboard();
+
 
     }
 
+    catch(error){
 
-    if(!data.user){
+        console.error(
+            "Unexpected login error:",
+            error
+        );
+
 
         show(
             "loginMessage",
-            "تعذر تسجيل الدخول.",
+            "حدث خطأ أثناء تسجيل الدخول.",
             true
         );
 
-        return;
-
     }
-
-
-    const profile =
-        await getAdminProfile(
-            data.user.id
-        );
-
-
-    if(!profile){
-
-        await supabaseClient
-            .auth
-            .signOut();
-
-        show(
-            "loginMessage",
-            "هذا الحساب غير مسجل في لوحة الإدارة.",
-            true
-        );
-
-        return;
-
-    }
-
-
-    if(!profile.active){
-
-        await supabaseClient
-            .auth
-            .signOut();
-
-        show(
-            "loginMessage",
-            "هذا الحساب معطل حاليًا.",
-            true
-        );
-
-        return;
-
-    }
-
-
-    currentAdmin =
-        profile;
-
-
-    showDashboard();
-
-
-    await initDashboard();
 
 }
 
 
-// ================= LOGOUT =================
+// ============================================================
+// LOGOUT
+// ============================================================
 
 async function logout(){
 
@@ -415,14 +880,18 @@ async function logout(){
         .auth
         .signOut();
 
+
     currentAdmin = null;
 
-    location.reload();
+
+    showLogin();
 
 }
 
 
-// ================= LOGIN BUTTON =================
+// ============================================================
+// LOGIN BUTTON
+// ============================================================
 
 if(loginBtn){
 
@@ -434,7 +903,9 @@ if(loginBtn){
 }
 
 
-// ================= LOGOUT BUTTON =================
+// ============================================================
+// LOGOUT BUTTON
+// ============================================================
 
 if(logoutBtn){
 
@@ -446,7 +917,9 @@ if(logoutBtn){
 }
 
 
-// ================= ENTER KEY =================
+// ============================================================
+// ENTER KEY
+// ============================================================
 
 const adminUsername =
     document.getElementById(
@@ -467,7 +940,8 @@ if(adminUsername){
         event => {
 
             if(
-                event.key === "Enter"
+                event.key ===
+                "Enter"
             ){
 
                 login();
@@ -487,7 +961,8 @@ if(adminPassword){
         event => {
 
             if(
-                event.key === "Enter"
+                event.key ===
+                "Enter"
             ){
 
                 login();
@@ -536,6 +1011,7 @@ supabaseClient
                     .auth
                     .signOut();
 
+
                 showLogin();
 
                 return;
@@ -575,7 +1051,10 @@ async function loadSettings(){
                 owner_one_phone,
                 owner_two_phone
             `)
-            .eq("id", 1)
+            .eq(
+                "id",
+                1
+            )
             .maybeSingle();
 
 
@@ -586,12 +1065,14 @@ async function loadSettings(){
             error
         );
 
+
         show(
             "settingsMessage",
             "تعذر تحميل الإعدادات: " +
             error.message,
             true
         );
+
 
         return false;
 
@@ -605,29 +1086,47 @@ async function loadSettings(){
                 data.day_price
             );
 
+
         settings.nightPrice =
             Number(
                 data.night_price
             );
 
+
         settings.nightStart =
             String(
-                data.night_start
-            ).substring(0, 5);
+                data.night_start ||
+                "19:30"
+            ).substring(
+                0,
+                5
+            );
+
 
         settings.open =
             String(
-                data.opening_time
-            ).substring(0, 5);
+                data.opening_time ||
+                "17:00"
+            ).substring(
+                0,
+                5
+            );
+
 
         settings.close =
             String(
-                data.closing_time
-            ).substring(0, 5);
+                data.closing_time ||
+                "01:00"
+            ).substring(
+                0,
+                5
+            );
+
 
         settings.ownerOne =
             data.owner_one_phone ||
             "";
+
 
         settings.ownerTwo =
             data.owner_two_phone ||
@@ -641,30 +1140,51 @@ async function loadSettings(){
 }
 
 
+// ============================================================
+// SAVE SETTINGS
+// ============================================================
+
 async function saveSettings(){
+
+    const dayPriceElement =
+        document.getElementById(
+            "dayPrice"
+        );
+
+
+    const nightPriceElement =
+        document.getElementById(
+            "nightPrice"
+        );
+
+
+    if(
+        !dayPriceElement ||
+        !nightPriceElement
+    ){
+
+        return;
+
+    }
+
 
     const dayPrice =
         Number(
-            document
-                .getElementById(
-                    "dayPrice"
-                )
-                .value
+            dayPriceElement.value
         );
+
 
     const nightPrice =
         Number(
-            document
-                .getElementById(
-                    "nightPrice"
-                )
-                .value
+            nightPriceElement.value
         );
 
 
     if(
         Number.isNaN(dayPrice) ||
-        Number.isNaN(nightPrice)
+        Number.isNaN(nightPrice) ||
+        dayPrice < 0 ||
+        nightPrice < 0
     ){
 
         show(
@@ -672,6 +1192,7 @@ async function saveSettings(){
             "اكتب أسعار صحيحة.",
             true
         );
+
 
         return;
 
@@ -684,11 +1205,13 @@ async function saveSettings(){
         await supabaseClient
             .from("settings")
             .update({
+
                 day_price:
                     dayPrice,
 
                 night_price:
                     nightPrice
+
             })
             .eq(
                 "id",
@@ -700,12 +1223,14 @@ async function saveSettings(){
 
         console.error(error);
 
+
         show(
             "settingsMessage",
             "حدث خطأ أثناء حفظ الأسعار: " +
             error.message,
             true
         );
+
 
         return;
 
@@ -714,6 +1239,7 @@ async function saveSettings(){
 
     settings.dayPrice =
         dayPrice;
+
 
     settings.nightPrice =
         nightPrice;
@@ -730,21 +1256,42 @@ async function saveSettings(){
 }
 
 
+// ============================================================
+// SAVE OWNERS
+// ============================================================
+
 async function saveOwners(){
 
+    const ownerOneElement =
+        document.getElementById(
+            "ownerOne"
+        );
+
+
+    const ownerTwoElement =
+        document.getElementById(
+            "ownerTwo"
+        );
+
+
+    if(
+        !ownerOneElement ||
+        !ownerTwoElement
+    ){
+
+        return;
+
+    }
+
+
     const ownerOne =
-        document
-            .getElementById(
-                "ownerOne"
-            )
+        ownerOneElement
             .value
             .trim();
 
+
     const ownerTwo =
-        document
-            .getElementById(
-                "ownerTwo"
-            )
+        ownerTwoElement
             .value
             .trim();
 
@@ -755,11 +1302,13 @@ async function saveOwners(){
         await supabaseClient
             .from("settings")
             .update({
+
                 owner_one_phone:
                     ownerOne,
 
                 owner_two_phone:
                     ownerTwo
+
             })
             .eq(
                 "id",
@@ -771,12 +1320,14 @@ async function saveOwners(){
 
         console.error(error);
 
+
         show(
             "ownersMessage",
             "حدث خطأ أثناء حفظ الأرقام: " +
             error.message,
             true
         );
+
 
         return;
 
@@ -785,6 +1336,7 @@ async function saveOwners(){
 
     settings.ownerOne =
         ownerOne;
+
 
     settings.ownerTwo =
         ownerTwo;
@@ -797,6 +1349,10 @@ async function saveOwners(){
 
 }
 
+
+// ============================================================
+// SETTINGS BUTTONS
+// ============================================================
 
 const saveSettingsBtn =
     document.getElementById(
@@ -878,12 +1434,14 @@ async function loadBookings(){
             error
         );
 
+
         show(
             "bookingList",
             "تعذر تحميل الحجوزات: " +
             error.message,
             true
         );
+
 
         return false;
 
@@ -904,17 +1462,23 @@ async function loadBookings(){
 
 
 // ============================================================
-// RENDER DASHBOARD
+// RENDER
 // ============================================================
 
 async function render(){
 
+    const adminDateElement =
+        document.getElementById(
+            "adminDate"
+        );
+
+
+    if(!adminDateElement)
+        return;
+
+
     const date =
-        document
-            .getElementById(
-                "adminDate"
-            )
-            .value;
+        adminDateElement.value;
 
 
     const active =
@@ -929,58 +1493,83 @@ async function render(){
         localISODate();
 
 
-    document
-        .getElementById(
-            "todayCount"
-        )
-        .textContent =
-
+    const todayBookings =
         active.filter(
             booking =>
                 affects(
                     booking,
                     today
                 )
-        ).length;
+        );
 
 
-    document
-        .getElementById(
-            "upcomingCount"
-        )
-        .textContent =
-
+    const upcomingBookings =
         active.filter(
             booking =>
                 booking.booking_date >=
                 today
-        ).length;
+        );
 
 
-    document
-        .getElementById(
+    const todayCountElement =
+        document.getElementById(
+            "todayCount"
+        );
+
+
+    const upcomingCountElement =
+        document.getElementById(
+            "upcomingCount"
+        );
+
+
+    const revenueElement =
+        document.getElementById(
             "revenue"
-        )
-        .textContent =
-
-        active.reduce(
-            (
-                total,
-                booking
-            ) =>
-
-                total +
-                Number(
-                    booking.price ||
-                    0
-                ),
-
-            0
-
-        ) + " ج";
+        );
 
 
-    // ================= SLOTS =================
+    if(todayCountElement){
+
+        todayCountElement.textContent =
+            todayBookings.length;
+
+    }
+
+
+    if(upcomingCountElement){
+
+        upcomingCountElement.textContent =
+            upcomingBookings.length;
+
+    }
+
+
+    if(revenueElement){
+
+        revenueElement.textContent =
+            active.reduce(
+                (
+                    total,
+                    booking
+                ) =>
+
+                    total +
+                    Number(
+                        booking.price ||
+                        0
+                    ),
+
+                0
+
+            ) + " ج";
+
+    }
+
+
+    // ========================================================
+    // ADMIN SLOTS
+    // ========================================================
 
     const dayBookings =
         active.filter(
@@ -992,28 +1581,33 @@ async function render(){
         );
 
 
-    const slots =
+    const slotsElement =
         document.getElementById(
             "adminSlots"
         );
 
 
-    if(slots){
+    if(slotsElement){
 
-        slots.innerHTML = "";
+        slotsElement.innerHTML = "";
+
 
         makeSlots().forEach(
             start => {
+
+                const slotEnd =
+                    endTime(
+                        start,
+                        60
+                    );
+
 
                 const found =
                     dayBookings.find(
                         booking =>
                             overlap(
                                 start,
-                                endTime(
-                                    start,
-                                    60
-                                ),
+                                slotEnd,
                                 booking.start_time,
                                 booking.end_time
                             )
@@ -1051,10 +1645,7 @@ async function render(){
 
                         ${minutesToTime(
                             timeToMinutes(
-                                endTime(
-                                    start,
-                                    60
-                                )
+                                slotEnd
                             )
                         )}
 
@@ -1064,13 +1655,18 @@ async function render(){
 
                         ${
                             found
+
                             ?
+
                             "🔴 " +
                             escapeHTML(
                                 found.customer_name
                             )
+
                             :
+
                             "🟢 متاح"
+
                         }
 
                     </small>
@@ -1078,7 +1674,7 @@ async function render(){
                 `;
 
 
-                slots.appendChild(
+                slotsElement.appendChild(
                     div
                 );
 
@@ -1088,7 +1684,9 @@ async function render(){
     }
 
 
-    // ================= BOOKING LIST =================
+    // ========================================================
+    // BOOKING LIST
+    // ========================================================
 
     const list =
         document.getElementById(
@@ -1108,6 +1706,7 @@ async function render(){
         list.innerHTML =
             '<p class="muted">لا توجد حجوزات حتى الآن.</p>';
 
+
         return;
 
     }
@@ -1116,15 +1715,20 @@ async function render(){
     bookings
         .slice()
         .sort(
-            (a, b) => {
+            (
+                a,
+                b
+            ) => {
 
                 const first =
                     a.booking_date +
                     a.start_time;
 
+
                 const second =
                     b.booking_date +
                     b.start_time;
+
 
                 return first.localeCompare(
                     second
@@ -1149,30 +1753,35 @@ async function render(){
                     booking.status ===
                     "pending"
 
-                        ?
-                        "في انتظار التأكيد"
+                    ?
 
-                        :
+                    "في انتظار التأكيد"
 
-                        booking.status ===
-                        "confirmed"
+                    :
 
-                            ?
-                            "مؤكد"
+                    booking.status ===
+                    "confirmed"
 
-                            :
-                            "ملغي";
+                    ?
+
+                    "مؤكد"
+
+                    :
+
+                    "ملغي";
 
 
                 const typeText =
                     booking.booking_type ===
                     "weekly"
 
-                        ?
-                        "🔄 حجز أسبوعي"
+                    ?
 
-                        :
-                        "حجز لمرة واحدة";
+                    "🔄 حجز أسبوعي"
+
+                    :
+
+                    "حجز لمرة واحدة";
 
 
                 item.innerHTML = `
@@ -1225,16 +1834,25 @@ async function render(){
                             Number(
                                 booking.duration_minutes
                             ) === 60
+
                             ?
+
                             "ساعة"
+
                             :
+
                             Number(
                                 booking.duration_minutes
                             ) === 90
+
                             ?
+
                             "ساعة ونصف"
+
                             :
+
                             "ساعتان"
+
                         }
 
                         <br>
@@ -1248,7 +1866,8 @@ async function render(){
 
                         💰
                         ${Number(
-                            booking.price || 0
+                            booking.price ||
+                            0
                         )}
                         جنيه
 
@@ -1274,12 +1893,12 @@ async function render(){
                             :
 
                             ""
+
                         }
 
                         <br>
 
                         الحالة:
-
                         ${statusText}
 
                     </small>
@@ -1304,6 +1923,7 @@ async function render(){
                             :
 
                             ""
+
                         }
 
 
@@ -1324,6 +1944,7 @@ async function render(){
                             :
 
                             ""
+
                         }
 
 
@@ -1409,7 +2030,7 @@ async function render(){
 
 
 // ============================================================
-// UPDATE BOOKING
+// UPDATE BOOKING STATUS
 // ============================================================
 
 async function updateBookingStatus(
@@ -1437,6 +2058,7 @@ async function updateBookingStatus(
             "حدث خطأ:\n" +
             error.message
         );
+
 
         return;
 
@@ -1487,6 +2109,7 @@ async function deleteBooking(
             error.message
         );
 
+
         return;
 
     }
@@ -1500,7 +2123,7 @@ async function deleteBooking(
 
 
 // ============================================================
-// DELETE TEST RECORD
+// DELETE TEST
 // ============================================================
 
 const clearDemoBtn =
@@ -1529,6 +2152,7 @@ if(clearDemoBtn){
                     "لا يوجد سجل اختبار."
                 );
 
+
                 return;
 
             }
@@ -1555,10 +2179,12 @@ if(clearDemoBtn){
 
 
 // ============================================================
-// REPORTS
+// REPORT DATE HELPERS
 // ============================================================
 
-function formatReportDate(date){
+function formatReportDate(
+    date
+){
 
     return new Intl.DateTimeFormat(
         "ar-EG",
@@ -1570,7 +2196,8 @@ function formatReportDate(date){
         }
     ).format(
         new Date(
-            date + "T12:00:00"
+            date +
+            "T12:00:00"
         )
     );
 
@@ -1588,22 +2215,31 @@ function addDays(
             "T12:00:00"
         );
 
+
     d.setDate(
-        d.getDate() + days
+        d.getDate() +
+        days
     );
+
 
     return localISODate(d);
 
 }
 
 
+// ============================================================
+// WEEK RANGE
+// ============================================================
+
 function getWeekRange(){
 
     const today =
         new Date();
 
+
     const day =
         today.getDay();
+
 
     const diffToSaturday =
         day === 6
@@ -1614,6 +2250,7 @@ function getWeekRange(){
     const start =
         new Date(today);
 
+
     start.setDate(
         today.getDate() -
         diffToSaturday
@@ -1623,28 +2260,39 @@ function getWeekRange(){
     const end =
         new Date(start);
 
+
     end.setDate(
-        start.getDate() + 6
+        start.getDate() +
+        6
     );
 
 
     return {
 
         start:
-            localISODate(start),
+            localISODate(
+                start
+            ),
 
         end:
-            localISODate(end)
+            localISODate(
+                end
+            )
 
     };
 
 }
 
 
+// ============================================================
+// MONTH RANGE
+// ============================================================
+
 function getMonthRange(){
 
     const today =
         new Date();
+
 
     const start =
         new Date(
@@ -1652,6 +2300,7 @@ function getMonthRange(){
             today.getMonth(),
             1
         );
+
 
     const end =
         new Date(
@@ -1664,10 +2313,14 @@ function getMonthRange(){
     return {
 
         start:
-            localISODate(start),
+            localISODate(
+                start
+            ),
 
         end:
-            localISODate(end)
+            localISODate(
+                end
+            )
 
     };
 
@@ -1675,7 +2328,7 @@ function getMonthRange(){
 
 
 // ============================================================
-// EXPAND BOOKINGS FOR REPORT - FIX DUPLICATES
+// REPORT BOOKINGS
 // ============================================================
 
 function getReportBookings(
@@ -1685,47 +2338,58 @@ function getReportBookings(
 
     const result = [];
 
-    // منع تكرار نفس الحجز في نفس التاريخ
-    const seen = new Set();
+    const seen =
+        new Set();
 
 
     bookings.forEach(
         booking => {
 
-            // الحجوزات الملغاة لا تدخل التقرير
             if(
-                booking.status === "cancelled"
+                booking.status ===
+                "cancelled"
             ){
+
                 return;
+
             }
 
 
             // ====================================================
-            // SINGLE BOOKING
+            // SINGLE
             // ====================================================
 
             if(
-                booking.booking_type !== "weekly"
+                booking.booking_type !==
+                "weekly"
             ){
 
                 if(
-                    booking.booking_date >= startDate &&
-                    booking.booking_date <= endDate
+                    booking.booking_date >=
+                    startDate &&
+
+                    booking.booking_date <=
+                    endDate
                 ){
 
                     const uniqueKey =
                         `${booking.id}_${booking.booking_date}`;
 
 
-                    // منع التكرار
                     if(
-                        seen.has(uniqueKey)
+                        seen.has(
+                            uniqueKey
+                        )
                     ){
+
                         return;
+
                     }
 
 
-                    seen.add(uniqueKey);
+                    seen.add(
+                        uniqueKey
+                    );
 
 
                     result.push({
@@ -1739,55 +2403,45 @@ function getReportBookings(
 
                 }
 
+
                 return;
 
             }
 
 
             // ====================================================
-            // WEEKLY BOOKING
+            // WEEKLY
             // ====================================================
 
             let current =
                 booking.booking_date;
 
 
-            /*
-                لو تاريخ بداية الحجز الأسبوعي
-                بعد نهاية التقرير، لا يوجد شيء نعرضه.
-            */
-
             if(
-                current > endDate
+                current >
+                endDate
             ){
+
                 return;
+
             }
 
 
-            /*
-                نتحرك أسبوعًا بأسبوع فقط.
-                يعني:
-                السبت
-                السبت التالي
-                السبت التالي...
-            */
-
             while(
-                current <= endDate
+                current <=
+                endDate
             ){
 
-                /*
-                    لازم يكون التاريخ داخل الفترة المطلوبة
-                    ولا يتجاوز تاريخ نهاية الحجز الأسبوعي.
-                */
-
                 const insideRange =
-                    current >= startDate &&
-                    current <= endDate;
+                    current >=
+                    startDate &&
+                    current <=
+                    endDate;
 
 
                 const insideWeeklyEnd =
                     !booking.weekly_end_date ||
+
                     current <=
                     booking.weekly_end_date;
 
@@ -1797,20 +2451,14 @@ function getReportBookings(
                     insideWeeklyEnd
                 ){
 
-                    /*
-                        المفتاح يعتمد على:
-                        ID الحجز + تاريخ التكرار
-
-                        وبالتالي مستحيل نفس الموعد
-                        يظهر مرتين في نفس التقرير.
-                    */
-
                     const uniqueKey =
                         `${booking.id}_${current}`;
 
 
                     if(
-                        !seen.has(uniqueKey)
+                        !seen.has(
+                            uniqueKey
+                        )
                     ){
 
                         seen.add(
@@ -1844,24 +2492,25 @@ function getReportBookings(
     );
 
 
-    // ============================================================
-    // SORT
-    // ============================================================
-
     result.sort(
-        (a, b) => {
+        (
+            a,
+            b
+        ) => {
 
             const first =
                 a.reportDate +
                 String(
-                    a.start_time || ""
+                    a.start_time ||
+                    ""
                 );
 
 
             const second =
                 b.reportDate +
                 String(
-                    b.start_time || ""
+                    b.start_time ||
+                    ""
                 );
 
 
@@ -1887,20 +2536,29 @@ function openReport(
 ){
 
     let range;
+
     let title;
 
 
-    if(type === "daily"){
+    if(
+        type ===
+        "daily"
+    ){
 
         const today =
             localISODate();
 
+
         range = {
 
-            start: today,
-            end: today
+            start:
+                today,
+
+            end:
+                today
 
         };
+
 
         title =
             "تقرير اليوم";
@@ -1908,10 +2566,14 @@ function openReport(
     }
 
 
-    else if(type === "weekly"){
+    else if(
+        type ===
+        "weekly"
+    ){
 
         range =
             getWeekRange();
+
 
         title =
             "تقرير الأسبوع";
@@ -1919,10 +2581,14 @@ function openReport(
     }
 
 
-    else if(type === "monthly"){
+    else if(
+        type ===
+        "monthly"
+    ){
 
         range =
             getMonthRange();
+
 
         title =
             "تقرير الشهر";
@@ -1953,7 +2619,8 @@ function openReport(
 
                 total +
                 Number(
-                    booking.price || 0
+                    booking.price ||
+                    0
                 ),
 
             0
@@ -1978,72 +2645,85 @@ function openReport(
 
 
     const totalHours =
-        totalMinutes / 60;
+        totalMinutes /
+        60;
 
 
     const reportRows =
-        reportBookings.map(
-            booking => `
+        reportBookings
+            .map(
+                booking => `
 
-                <tr>
+                    <tr>
 
-                    <td>
-                        ${escapeHTML(
-                            booking.customer_name
-                        )}
-                    </td>
+                        <td>
+                            ${escapeHTML(
+                                booking.customer_name
+                            )}
+                        </td>
 
-                    <td>
-                        ${formatReportDate(
-                            booking.reportDate
-                        )}
-                    </td>
+                        <td>
+                            ${formatReportDate(
+                                booking.reportDate
+                            )}
+                        </td>
 
-                    <td>
-                        ${minutesToTime(
-                            timeToMinutes(
-                                booking.start_time
-                            )
-                        )}
-                    </td>
+                        <td>
+                            ${minutesToTime(
+                                timeToMinutes(
+                                    booking.start_time
+                                )
+                            )}
+                        </td>
 
-                    <td>
-                        ${minutesToTime(
-                            timeToMinutes(
-                                booking.end_time
-                            )
-                        )}
-                    </td>
+                        <td>
+                            ${minutesToTime(
+                                timeToMinutes(
+                                    booking.end_time
+                                )
+                            )}
+                        </td>
 
-                    <td>
-                        ${Number(
-                            booking.duration_minutes ||
-                            0
-                        ) / 60}
-                    </td>
+                        <td>
+                            ${
+                                Number(
+                                    booking.duration_minutes ||
+                                    0
+                                ) / 60
+                            }
+                        </td>
 
-                    <td>
-                        ${Number(
-                            booking.price || 0
-                        )}
-                        جنيه
-                    </td>
+                        <td>
+                            ${Number(
+                                booking.price ||
+                                0
+                            )}
+                            جنيه
+                        </td>
 
-                    <td>
-                        ${
-                            booking.status ===
-                            "confirmed"
-                            ?
-                            "مؤكد"
-                            :
-                            "في انتظار التأكيد"
-                        }
-                    </td>
+                        <td>
 
-                </tr>
+                            ${
+                                booking.status ===
+                                "confirmed"
 
-            `
-        ).join("");
+                                ?
+
+                                "مؤكد"
+
+                                :
+
+                                "في انتظار التأكيد"
+
+                            }
+
+                        </td>
+
+                    </tr>
+
+                `
+            )
+            .join("");
 
 
     const emptyRow = `
@@ -2057,7 +2737,9 @@ function openReport(
                     padding:30px;
                 "
             >
+
                 لا توجد حجوزات في هذه الفترة.
+
             </td>
 
         </tr>
@@ -2077,6 +2759,7 @@ function openReport(
         alert(
             "المتصفح منع فتح صفحة التقرير. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى."
         );
+
 
         return;
 
@@ -2102,7 +2785,8 @@ function openReport(
             >
 
             <title>
-                ${title} - ملعب العزيمة 14
+                ${escapeHTML(title)}
+                - ملعب العزيمة 14
             </title>
 
             <style>
@@ -2111,6 +2795,7 @@ function openReport(
                     box-sizing:border-box;
                 }
 
+
                 body{
 
                     margin:0;
@@ -2118,6 +2803,7 @@ function openReport(
                     padding:30px;
 
                     font-family:
+                        Tajawal,
                         Arial,
                         Tahoma,
                         sans-serif;
@@ -2128,6 +2814,7 @@ function openReport(
 
                 }
 
+
                 .report{
 
                     max-width:1100px;
@@ -2135,6 +2822,7 @@ function openReport(
                     margin:auto;
 
                 }
+
 
                 .header{
 
@@ -2149,6 +2837,7 @@ function openReport(
 
                 }
 
+
                 .header h1{
 
                     margin:
@@ -2157,6 +2846,7 @@ function openReport(
                     font-size:28px;
 
                 }
+
 
                 .header h2{
 
@@ -2168,6 +2858,7 @@ function openReport(
 
                 }
 
+
                 .period{
 
                     margin-top:10px;
@@ -2175,6 +2866,7 @@ function openReport(
                     font-size:15px;
 
                 }
+
 
                 .summary{
 
@@ -2189,6 +2881,7 @@ function openReport(
 
                 }
 
+
                 .summary-box{
 
                     border:
@@ -2202,6 +2895,7 @@ function openReport(
 
                 }
 
+
                 .summary-box strong{
 
                     display:block;
@@ -2212,6 +2906,7 @@ function openReport(
 
                 }
 
+
                 table{
 
                     width:100%;
@@ -2221,6 +2916,7 @@ function openReport(
                     margin-top:15px;
 
                 }
+
 
                 th,
                 td{
@@ -2234,6 +2930,7 @@ function openReport(
 
                 }
 
+
                 th{
 
                     background:#f1f1f1;
@@ -2241,6 +2938,7 @@ function openReport(
                     font-weight:bold;
 
                 }
+
 
                 .print-btn{
 
@@ -2266,6 +2964,7 @@ function openReport(
 
                 }
 
+
                 .footer{
 
                     margin-top:30px;
@@ -2278,6 +2977,7 @@ function openReport(
 
                 }
 
+
                 @media print{
 
                     body{
@@ -2286,17 +2986,20 @@ function openReport(
 
                     }
 
+
                     .print-btn{
 
                         display:none;
 
                     }
 
+
                     .summary-box{
 
                         break-inside:avoid;
 
                     }
+
 
                     table{
 
@@ -2306,6 +3009,7 @@ function openReport(
 
                 }
 
+
                 @media(max-width:700px){
 
                     body{
@@ -2314,6 +3018,7 @@ function openReport(
 
                     }
 
+
                     .summary{
 
                         grid-template-columns:
@@ -2321,11 +3026,13 @@ function openReport(
 
                     }
 
+
                     table{
 
                         font-size:11px;
 
                     }
+
 
                     th,
                     td{
@@ -2352,12 +3059,13 @@ function openReport(
                     </h1>
 
                     <h2>
-                        ${title}
+                        ${escapeHTML(title)}
                     </h2>
 
                     <div class="period">
 
                         من
+
                         <strong>
                             ${formatReportDate(
                                 range.start
@@ -2453,14 +3161,13 @@ function openReport(
 
                     </thead>
 
+
                     <tbody>
 
                         ${
                             reportRows ||
                             emptyRow
                         }
-
-                        $
 
                     </tbody>
 
@@ -2505,10 +3212,12 @@ const dailyReportBtn =
         "dailyReportBtn"
     );
 
+
 const weeklyReportBtn =
     document.getElementById(
         "weeklyReportBtn"
     );
+
 
 const monthlyReportBtn =
     document.getElementById(
@@ -2568,7 +3277,9 @@ if(monthlyReportBtn){
 // ESCAPE HTML
 // ============================================================
 
-function escapeHTML(value){
+function escapeHTML(
+    value
+){
 
     return String(
         value ?? ""
@@ -2601,62 +3312,121 @@ function escapeHTML(value){
 // INIT DASHBOARD
 // ============================================================
 
+let dashboardInitialized =
+    false;
+
+
 async function initDashboard(){
 
-    document
-        .getElementById(
+    if(
+        dashboardInitialized
+    ){
+
+        return;
+
+    }
+
+
+    dashboardInitialized =
+        true;
+
+
+    const adminDateElement =
+        document.getElementById(
             "adminDate"
-        )
-        .value =
-        localISODate();
+        );
+
+
+    if(adminDateElement){
+
+        adminDateElement.value =
+            localISODate();
+
+    }
 
 
     const settingsLoaded =
         await loadSettings();
 
 
-    if(!settingsLoaded)
+    if(!settingsLoaded){
+
+        dashboardInitialized =
+            false;
+
         return;
 
+    }
 
-    document
-        .getElementById(
+
+    const dayPriceElement =
+        document.getElementById(
             "dayPrice"
-        )
-        .value =
-        settings.dayPrice;
+        );
 
 
-    document
-        .getElementById(
+    const nightPriceElement =
+        document.getElementById(
             "nightPrice"
-        )
-        .value =
-        settings.nightPrice;
+        );
 
 
-    document
-        .getElementById(
+    const ownerOneElement =
+        document.getElementById(
             "ownerOne"
-        )
-        .value =
-        settings.ownerOne;
+        );
 
 
-    document
-        .getElementById(
+    const ownerTwoElement =
+        document.getElementById(
             "ownerTwo"
-        )
-        .value =
-        settings.ownerTwo;
+        );
+
+
+    if(dayPriceElement){
+
+        dayPriceElement.value =
+            settings.dayPrice;
+
+    }
+
+
+    if(nightPriceElement){
+
+        nightPriceElement.value =
+            settings.nightPrice;
+
+    }
+
+
+    if(ownerOneElement){
+
+        ownerOneElement.value =
+            settings.ownerOne;
+
+    }
+
+
+    if(ownerTwoElement){
+
+        ownerTwoElement.value =
+            settings.ownerTwo;
+
+    }
 
 
     const bookingsLoaded =
         await loadBookings();
 
 
-    if(!bookingsLoaded)
+    if(!bookingsLoaded){
+
+        dashboardInitialized =
+            false;
+
         return;
+
+    }
 
 
     await render();
@@ -2683,19 +3453,9 @@ if(adminDate){
 
 }
 
+
 // ============================================================
 // START
 // ============================================================
 
-checkSession()
-    .then(
-        loggedIn => {
-
-            if(loggedIn){
-
-                initDashboard();
-
-            }
-
-        }
-    );
+checkSession();
