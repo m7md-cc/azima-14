@@ -23,10 +23,36 @@ const supabaseClient =
 // ============================================================
 
 // Auth UID الحقيقي لحساب admin في Supabase Auth
-const ADMIN_AUTH_UID =
-    "7c8d6e93-89a3-46e9-a997-05192cea77b5";
 
 let currentAdmin = null;
+
+let bookings = [];
+
+let settings = {
+
+    dayPrice: 70,
+    nightPrice: 80,
+    nightStart: "19:30",
+    open: "17:00",
+    close: "01:00",
+    ownerOne: "201116733739",
+    ownerTwo: ""
+
+};
+
+// ================= ELEMENTS =================
+
+const loginPanel =
+    document.getElementById("loginPanel");
+
+const dashboard =
+    document.getElementById("dashboard");
+
+const loginBtn =
+    document.getElementById("loginBtn");
+
+const logoutBtn =
+    document.getElementById("logoutBtn");
 
 
 // ================= GET USER PROFILE =================
@@ -2656,33 +2682,6 @@ if(adminDate){
     );
 
 }
-
-
-// ============================================================
-// AUTH STATE
-// ============================================================
-
-supabaseClient
-    .auth
-    .onAuthStateChange(
-        async (
-            event,
-            session
-        ) => {
-
-            if(
-                session &&
-                session.user.id ===
-                ADMIN_UID
-            ){
-
-                showDashboard();
-
-            }
-
-        }
-    );
-
 
 // ============================================================
 // START
