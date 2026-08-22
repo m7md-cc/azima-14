@@ -1,6 +1,6 @@
 // ============================================================
 // AL AZIMA 14 - ADMIN DASHBOARD
-// Supabase Auth + Database + Reports
+// Supabase Auth + Database + Reports + User Management
 // ============================================================
 
 
@@ -29,6 +29,8 @@ const supabaseClient =
 let currentAdmin = null;
 
 let bookings = [];
+
+let dashboardInitialized = false;
 
 
 let settings = {
@@ -66,6 +68,9 @@ const loginBtn =
 const logoutBtn =
     document.getElementById("logoutBtn");
 
+const usersSection =
+    document.getElementById("usersSection");
+
 
 // ============================================================
 // MESSAGE HELPER
@@ -78,9 +83,7 @@ function show(
 ){
 
     const element =
-        document.getElementById(
-            elementId
-        );
+        document.getElementById(elementId);
 
 
     if(!element)
@@ -106,6 +109,63 @@ function show(
 
         element.classList.add(
             "success"
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ROLE / PERMISSIONS
+// ============================================================
+
+function isOwner(){
+
+    return (
+        currentAdmin &&
+        currentAdmin.role === "owner"
+    );
+
+}
+
+
+function isAdmin(){
+
+    return (
+        currentAdmin &&
+        (
+            currentAdmin.role === "admin" ||
+            currentAdmin.role === "owner"
+        )
+    );
+
+}
+
+
+// ============================================================
+// USER MANAGEMENT VISIBILITY
+// ============================================================
+
+function updateUserManagementVisibility(){
+
+    if(!usersSection)
+        return;
+
+
+    if(isOwner()){
+
+        usersSection.classList.remove(
+            "hidden"
+        );
+
+        loadAdminUsers();
+
+    }
+    else{
+
+        usersSection.classList.add(
+            "hidden"
         );
 
     }
@@ -184,7 +244,7 @@ function timeToMinutes(
 
     const parts =
         String(time)
-            .substring(0, 5)
+            .substring(0,5)
             .split(":");
 
 
@@ -227,9 +287,9 @@ function minutesToTime(
 
 
     return (
-        String(hours).padStart(2, "0") +
+        String(hours).padStart(2,"0") +
         ":" +
-        String(mins).padStart(2, "0")
+        String(mins).padStart(2,"0")
     );
 
 }
@@ -283,10 +343,7 @@ function makeSlots(){
         start += 60;
 
 
-        if(
-            start >=
-            closing
-        ){
+        if(start >= closing){
 
             break;
 
@@ -324,10 +381,9 @@ function overlap(
         timeToMinutes(endB);
 
 
-    // التعامل مع المواعيد التي تتجاوز منتصف الليل
-
     if(aEnd <= aStart)
         aEnd += 1440;
+
 
     if(bEnd <= bStart)
         bEnd += 1440;
@@ -519,6 +575,9 @@ function showDashboard(){
 
     }
 
+
+    updateUserManagementVisibility();
+
 }
 
 
@@ -675,10 +734,6 @@ async function login(){
         !passwordElement
     ){
 
-        console.error(
-            "Username/password fields not found."
-        );
-
         return;
 
     }
@@ -727,31 +782,11 @@ async function login(){
     );
 
 
-    /*
-        Username → Email داخلي
-
-        admin
-        ↓
-        admin@azima.local
-
-        أي مستخدم آخر:
-        username
-        ↓
-        username@azima.local
-    */
-
-
     const email =
         `${username}@azima.local`;
 
 
     try{
-
-        console.log(
-            "Trying login with:",
-            email
-        );
-
 
         const {
             data,
@@ -767,10 +802,6 @@ async function login(){
 
                 });
 
-
-        // ====================================================
-        // AUTH LOGIN ERROR
-        // ====================================================
 
         if(error){
 
@@ -793,16 +824,7 @@ async function login(){
         }
 
 
-        // ====================================================
-        // USER NOT RETURNED
-        // ====================================================
-
         if(!data.user){
-
-            console.error(
-                "No user returned from Supabase Auth."
-            );
-
 
             show(
                 "loginMessage",
@@ -816,33 +838,13 @@ async function login(){
         }
 
 
-        console.log(
-            "Auth login successful:",
-            data.user.id
-        );
-
-
-        // ====================================================
-        // GET ADMIN PROFILE
-        // ====================================================
-
         const profile =
             await getAdminProfile(
                 data.user.id
             );
 
 
-        // ====================================================
-        // ADMIN PROFILE NOT FOUND
-        // ====================================================
-
         if(!profile){
-
-            console.error(
-                "AUTH OK BUT ADMIN PROFILE NOT FOUND:",
-                data.user.id
-            );
-
 
             await supabaseClient
                 .auth
@@ -864,17 +866,7 @@ async function login(){
         }
 
 
-        // ====================================================
-        // ACCOUNT DISABLED
-        // ====================================================
-
         if(!profile.active){
-
-            console.error(
-                "ADMIN ACCOUNT IS DISABLED:",
-                profile
-            );
-
 
             await supabaseClient
                 .auth
@@ -896,17 +888,13 @@ async function login(){
         }
 
 
-        // ====================================================
-        // SUCCESS
-        // ====================================================
-
         currentAdmin =
             profile;
 
 
         console.log(
-            "Admin profile:",
-            profile
+            "Logged in admin:",
+            currentAdmin
         );
 
 
@@ -914,7 +902,6 @@ async function login(){
 
 
         await initDashboard();
-
 
     }
 
@@ -950,6 +937,8 @@ async function logout(){
 
 
     currentAdmin = null;
+
+    dashboardInitialized = false;
 
 
     showLogin();
@@ -1007,10 +996,7 @@ if(adminUsername){
         "keydown",
         event => {
 
-            if(
-                event.key ===
-                "Enter"
-            ){
+            if(event.key === "Enter"){
 
                 login();
 
@@ -1028,10 +1014,7 @@ if(adminPassword){
         "keydown",
         event => {
 
-            if(
-                event.key ===
-                "Enter"
-            ){
+            if(event.key === "Enter"){
 
                 login();
 
@@ -1057,6 +1040,8 @@ supabaseClient
 
             if(!session){
 
+                currentAdmin = null;
+
                 showLogin();
 
                 return;
@@ -1079,6 +1064,8 @@ supabaseClient
                     .auth
                     .signOut();
 
+
+                currentAdmin = null;
 
                 showLogin();
 
@@ -1214,6 +1201,10 @@ async function loadSettings(){
 
 async function saveSettings(){
 
+    if(!isAdmin())
+        return;
+
+
     const dayPriceElement =
         document.getElementById(
             "dayPrice"
@@ -1289,9 +1280,6 @@ async function saveSettings(){
 
     if(error){
 
-        console.error(error);
-
-
         show(
             "settingsMessage",
             "حدث خطأ أثناء حفظ الأسعار: " +
@@ -1330,6 +1318,10 @@ async function saveSettings(){
 
 async function saveOwners(){
 
+    if(!isAdmin())
+        return;
+
+
     const ownerOneElement =
         document.getElementById(
             "ownerOne"
@@ -1353,15 +1345,11 @@ async function saveOwners(){
 
 
     const ownerOne =
-        ownerOneElement
-            .value
-            .trim();
+        ownerOneElement.value.trim();
 
 
     const ownerTwo =
-        ownerTwoElement
-            .value
-            .trim();
+        ownerTwoElement.value.trim();
 
 
     const {
@@ -1385,9 +1373,6 @@ async function saveOwners(){
 
 
     if(error){
-
-        console.error(error);
-
 
         show(
             "ownersMessage",
@@ -1422,36 +1407,20 @@ async function saveOwners(){
 // SETTINGS BUTTONS
 // ============================================================
 
-const saveSettingsBtn =
-    document.getElementById(
-        "saveSettingsBtn"
-    );
-
-
-if(saveSettingsBtn){
-
-    saveSettingsBtn.addEventListener(
+document
+    .getElementById("saveSettingsBtn")
+    ?.addEventListener(
         "click",
         saveSettings
     );
 
-}
 
-
-const saveOwnersBtn =
-    document.getElementById(
-        "saveOwnersBtn"
-    );
-
-
-if(saveOwnersBtn){
-
-    saveOwnersBtn.addEventListener(
+document
+    .getElementById("saveOwnersBtn")
+    ?.addEventListener(
         "click",
         saveOwners
     );
-
-}
 
 
 // ============================================================
@@ -1484,13 +1453,13 @@ async function loadBookings(){
             .order(
                 "booking_date",
                 {
-                    ascending: true
+                    ascending:true
                 }
             )
             .order(
                 "start_time",
                 {
-                    ascending: true
+                    ascending:true
                 }
             );
 
@@ -1518,10 +1487,8 @@ async function loadBookings(){
 
     bookings =
         Array.isArray(data)
-            ?
-            data
-            :
-            [];
+            ? data
+            : [];
 
 
     return true;
@@ -1624,8 +1591,7 @@ async function render(){
 
                     total +
                     Number(
-                        booking.price ||
-                        0
+                        booking.price || 0
                     ),
 
                 0
@@ -1636,7 +1602,7 @@ async function render(){
 
 
     // ========================================================
-    // ADMIN SLOTS
+    // SLOTS
     // ========================================================
 
     const dayBookings =
@@ -1702,39 +1668,26 @@ async function render(){
                 div.innerHTML = `
 
                     <strong>
-
                         ${minutesToTime(
-                            timeToMinutes(
-                                start
-                            )
+                            timeToMinutes(start)
                         )}
-
                         -
-
                         ${minutesToTime(
-                            timeToMinutes(
-                                slotEnd
-                            )
+                            timeToMinutes(slotEnd)
                         )}
-
                     </strong>
 
                     <small>
 
                         ${
                             found
-
                             ?
-
                             "🔴 " +
                             escapeHTML(
                                 found.customer_name
                             )
-
                             :
-
                             "🟢 متاح"
-
                         }
 
                     </small>
@@ -1783,10 +1736,7 @@ async function render(){
     bookings
         .slice()
         .sort(
-            (
-                a,
-                b
-            ) => {
+            (a,b) => {
 
                 const first =
                     a.booking_date +
@@ -1818,37 +1768,22 @@ async function render(){
 
 
                 const statusText =
-                    booking.status ===
-                    "pending"
-
+                    booking.status === "pending"
                     ?
-
                     "في انتظار التأكيد"
-
                     :
-
-                    booking.status ===
-                    "confirmed"
-
+                    booking.status === "confirmed"
                     ?
-
                     "مؤكد"
-
                     :
-
                     "ملغي";
 
 
                 const typeText =
-                    booking.booking_type ===
-                    "weekly"
-
+                    booking.booking_type === "weekly"
                     ?
-
                     "🔄 حجز أسبوعي"
-
                     :
-
                     "حجز لمرة واحدة";
 
 
@@ -1861,8 +1796,7 @@ async function render(){
                         )}
 
                         ${
-                            booking.booking_type ===
-                            "weekly"
+                            booking.booking_type === "weekly"
                             ?
                             " 🔄"
                             :
@@ -1870,6 +1804,7 @@ async function render(){
                         }
 
                     </strong>
+
 
                     <small>
 
@@ -1902,25 +1837,16 @@ async function render(){
                             Number(
                                 booking.duration_minutes
                             ) === 60
-
                             ?
-
                             "ساعة"
-
                             :
-
                             Number(
                                 booking.duration_minutes
                             ) === 90
-
                             ?
-
                             "ساعة ونصف"
-
                             :
-
                             "ساعتان"
-
                         }
 
                         <br>
@@ -1934,8 +1860,7 @@ async function render(){
 
                         💰
                         ${Number(
-                            booking.price ||
-                            0
+                            booking.price || 0
                         )}
                         جنيه
 
@@ -1945,11 +1870,8 @@ async function render(){
                         ${typeText}
 
                         ${
-                            booking.booking_type ===
-                            "weekly"
-
+                            booking.booking_type === "weekly"
                             ?
-
                             `
                             <br>
                             🗓️ حتى:
@@ -1957,11 +1879,8 @@ async function render(){
                                 booking.weekly_end_date
                             )}
                             `
-
                             :
-
                             ""
-
                         }
 
                         <br>
@@ -1975,11 +1894,8 @@ async function render(){
                     <div class="actions">
 
                         ${
-                            booking.status !==
-                            "confirmed"
-
+                            booking.status !== "confirmed"
                             ?
-
                             `
                             <button
                                 data-action="confirm"
@@ -1987,20 +1903,14 @@ async function render(){
                                 تأكيد
                             </button>
                             `
-
                             :
-
                             ""
-
                         }
 
 
                         ${
-                            booking.status !==
-                            "cancelled"
-
+                            booking.status !== "cancelled"
                             ?
-
                             `
                             <button
                                 data-action="cancel"
@@ -2008,11 +1918,8 @@ async function render(){
                                 إلغاء
                             </button>
                             `
-
                             :
-
                             ""
-
                         }
 
 
@@ -2029,9 +1936,7 @@ async function render(){
 
 
                 item
-                    .querySelectorAll(
-                        "button"
-                    )
+                    .querySelectorAll("button")
                     .forEach(
                         button => {
 
@@ -2043,10 +1948,7 @@ async function render(){
                                         button.dataset.action;
 
 
-                                    if(
-                                        action ===
-                                        "confirm"
-                                    ){
+                                    if(action === "confirm"){
 
                                         await updateBookingStatus(
                                             booking.id,
@@ -2056,10 +1958,7 @@ async function render(){
                                     }
 
 
-                                    if(
-                                        action ===
-                                        "cancel"
-                                    ){
+                                    if(action === "cancel"){
 
                                         await updateBookingStatus(
                                             booking.id,
@@ -2069,10 +1968,7 @@ async function render(){
                                     }
 
 
-                                    if(
-                                        action ===
-                                        "delete"
-                                    ){
+                                    if(action === "delete"){
 
                                         await deleteBooking(
                                             booking
@@ -2105,6 +2001,10 @@ async function updateBookingStatus(
     id,
     status
 ){
+
+    if(!isAdmin())
+        return;
+
 
     const {
         error
@@ -2148,13 +2048,17 @@ async function deleteBooking(
     booking
 ){
 
-    const confirmDelete =
+    if(!isAdmin())
+        return;
+
+
+    const confirmed =
         confirm(
             `هل تريد حذف حجز ${booking.customer_name}؟`
         );
 
 
-    if(!confirmDelete)
+    if(!confirmed)
         return;
 
 
@@ -2194,15 +2098,9 @@ async function deleteBooking(
 // DELETE TEST
 // ============================================================
 
-const clearDemoBtn =
-    document.getElementById(
-        "clearDemoBtn"
-    );
-
-
-if(clearDemoBtn){
-
-    clearDemoBtn.addEventListener(
+document
+    .getElementById("clearDemoBtn")
+    ?.addEventListener(
         "click",
         async () => {
 
@@ -2226,13 +2124,13 @@ if(clearDemoBtn){
             }
 
 
-            const confirmDelete =
+            const confirmed =
                 confirm(
                     "هل تريد حذف سجل الاختبار فقط؟"
                 );
 
 
-            if(!confirmDelete)
+            if(!confirmed)
                 return;
 
 
@@ -2243,11 +2141,9 @@ if(clearDemoBtn){
         }
     );
 
-}
-
 
 // ============================================================
-// REPORT DATE HELPERS
+// REPORT HELPERS
 // ============================================================
 
 function formatReportDate(
@@ -2257,15 +2153,14 @@ function formatReportDate(
     return new Intl.DateTimeFormat(
         "ar-EG",
         {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric"
+            weekday:"long",
+            day:"numeric",
+            month:"long",
+            year:"numeric"
         }
     ).format(
         new Date(
-            date +
-            "T12:00:00"
+            date + "T12:00:00"
         )
     );
 
@@ -2285,8 +2180,7 @@ function addDays(
 
 
     d.setDate(
-        d.getDate() +
-        days
+        d.getDate() + days
     );
 
 
@@ -2330,22 +2224,17 @@ function getWeekRange(){
 
 
     end.setDate(
-        start.getDate() +
-        6
+        start.getDate() + 6
     );
 
 
     return {
 
         start:
-            localISODate(
-                start
-            ),
+            localISODate(start),
 
         end:
-            localISODate(
-                end
-            )
+            localISODate(end)
 
     };
 
@@ -2381,14 +2270,10 @@ function getMonthRange(){
     return {
 
         start:
-            localISODate(
-                start
-            ),
+            localISODate(start),
 
         end:
-            localISODate(
-                end
-            )
+            localISODate(end)
 
     };
 
@@ -2423,51 +2308,35 @@ function getReportBookings(
             }
 
 
-            // ====================================================
-            // SINGLE
-            // ====================================================
-
             if(
                 booking.booking_type !==
                 "weekly"
             ){
 
                 if(
-                    booking.booking_date >=
-                    startDate &&
-
-                    booking.booking_date <=
-                    endDate
+                    booking.booking_date >= startDate &&
+                    booking.booking_date <= endDate
                 ){
 
-                    const uniqueKey =
+                    const key =
                         `${booking.id}_${booking.booking_date}`;
 
 
-                    if(
-                        seen.has(
-                            uniqueKey
-                        )
-                    ){
+                    if(!seen.has(key)){
 
-                        return;
+                        seen.add(key);
+
+
+                        result.push({
+
+                            ...booking,
+
+                            reportDate:
+                                booking.booking_date
+
+                        });
 
                     }
-
-
-                    seen.add(
-                        uniqueKey
-                    );
-
-
-                    result.push({
-
-                        ...booking,
-
-                        reportDate:
-                            booking.booking_date
-
-                    });
 
                 }
 
@@ -2477,61 +2346,38 @@ function getReportBookings(
             }
 
 
-            // ====================================================
-            // WEEKLY
-            // ====================================================
-
             let current =
                 booking.booking_date;
 
 
-            if(
-                current >
-                endDate
-            ){
-
+            if(current > endDate)
                 return;
 
-            }
 
-
-            while(
-                current <=
-                endDate
-            ){
+            while(current <= endDate){
 
                 const insideRange =
-                    current >=
-                    startDate &&
-                    current <=
-                    endDate;
+                    current >= startDate &&
+                    current <= endDate;
 
 
-                const insideWeeklyEnd =
+                const insideEnd =
                     !booking.weekly_end_date ||
-
-                    current <=
-                    booking.weekly_end_date;
+                    current <= booking.weekly_end_date;
 
 
                 if(
                     insideRange &&
-                    insideWeeklyEnd
+                    insideEnd
                 ){
 
-                    const uniqueKey =
+                    const key =
                         `${booking.id}_${current}`;
 
 
-                    if(
-                        !seen.has(
-                            uniqueKey
-                        )
-                    ){
+                    if(!seen.has(key)){
 
-                        seen.add(
-                            uniqueKey
-                        );
+                        seen.add(key);
 
 
                         result.push({
@@ -2561,24 +2407,19 @@ function getReportBookings(
 
 
     result.sort(
-        (
-            a,
-            b
-        ) => {
+        (a,b) => {
 
             const first =
                 a.reportDate +
                 String(
-                    a.start_time ||
-                    ""
+                    a.start_time || ""
                 );
 
 
             const second =
                 b.reportDate +
                 String(
-                    b.start_time ||
-                    ""
+                    b.start_time || ""
                 );
 
 
@@ -2608,10 +2449,7 @@ function openReport(
     let title;
 
 
-    if(
-        type ===
-        "daily"
-    ){
+    if(type === "daily"){
 
         const today =
             localISODate();
@@ -2619,11 +2457,9 @@ function openReport(
 
         range = {
 
-            start:
-                today,
+            start: today,
 
-            end:
-                today
+            end: today
 
         };
 
@@ -2634,10 +2470,7 @@ function openReport(
     }
 
 
-    else if(
-        type ===
-        "weekly"
-    ){
+    else if(type === "weekly"){
 
         range =
             getWeekRange();
@@ -2649,10 +2482,7 @@ function openReport(
     }
 
 
-    else if(
-        type ===
-        "monthly"
-    ){
+    else if(type === "monthly"){
 
         range =
             getMonthRange();
@@ -2684,13 +2514,10 @@ function openReport(
                 total,
                 booking
             ) =>
-
                 total +
                 Number(
-                    booking.price ||
-                    0
+                    booking.price || 0
                 ),
-
             0
         );
 
@@ -2701,20 +2528,16 @@ function openReport(
                 total,
                 booking
             ) =>
-
                 total +
                 Number(
-                    booking.duration_minutes ||
-                    0
+                    booking.duration_minutes || 0
                 ),
-
             0
         );
 
 
     const totalHours =
-        totalMinutes /
-        60;
+        totalMinutes / 60;
 
 
     const reportRows =
@@ -2755,16 +2578,14 @@ function openReport(
                         <td>
                             ${
                                 Number(
-                                    booking.duration_minutes ||
-                                    0
+                                    booking.duration_minutes || 0
                                 ) / 60
                             }
                         </td>
 
                         <td>
                             ${Number(
-                                booking.price ||
-                                0
+                                booking.price || 0
                             )}
                             جنيه
                         </td>
@@ -2772,17 +2593,11 @@ function openReport(
                         <td>
 
                             ${
-                                booking.status ===
-                                "confirmed"
-
+                                booking.status === "confirmed"
                                 ?
-
                                 "مؤكد"
-
                                 :
-
                                 "في انتظار التأكيد"
-
                             }
 
                         </td>
@@ -2825,7 +2640,7 @@ function openReport(
     if(!reportWindow){
 
         alert(
-            "المتصفح منع فتح صفحة التقرير. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى."
+            "المتصفح منع فتح صفحة التقرير."
         );
 
 
@@ -2857,12 +2672,16 @@ function openReport(
                 - ملعب العزيمة 14
             </title>
 
+            <link
+                href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap"
+                rel="stylesheet"
+            >
+
             <style>
 
                 *{
                     box-sizing:border-box;
                 }
-
 
                 body{
 
@@ -2873,7 +2692,6 @@ function openReport(
                     font-family:
                         Tajawal,
                         Arial,
-                        Tahoma,
                         sans-serif;
 
                     background:#fff;
@@ -2882,7 +2700,6 @@ function openReport(
 
                 }
 
-
                 .report{
 
                     max-width:1100px;
@@ -2890,7 +2707,6 @@ function openReport(
                     margin:auto;
 
                 }
-
 
                 .header{
 
@@ -2905,7 +2721,6 @@ function openReport(
 
                 }
 
-
                 .header h1{
 
                     margin:
@@ -2914,7 +2729,6 @@ function openReport(
                     font-size:28px;
 
                 }
-
 
                 .header h2{
 
@@ -2926,7 +2740,6 @@ function openReport(
 
                 }
 
-
                 .period{
 
                     margin-top:10px;
@@ -2935,20 +2748,18 @@ function openReport(
 
                 }
 
-
                 .summary{
 
                     display:grid;
 
                     grid-template-columns:
-                        repeat(3, 1fr);
+                        repeat(3,1fr);
 
                     gap:12px;
 
                     margin-bottom:25px;
 
                 }
-
 
                 .summary-box{
 
@@ -2963,7 +2774,6 @@ function openReport(
 
                 }
 
-
                 .summary-box strong{
 
                     display:block;
@@ -2974,7 +2784,6 @@ function openReport(
 
                 }
 
-
                 table{
 
                     width:100%;
@@ -2984,7 +2793,6 @@ function openReport(
                     margin-top:15px;
 
                 }
-
 
                 th,
                 td{
@@ -2998,7 +2806,6 @@ function openReport(
 
                 }
 
-
                 th{
 
                     background:#f1f1f1;
@@ -3006,7 +2813,6 @@ function openReport(
                     font-weight:bold;
 
                 }
-
 
                 .print-btn{
 
@@ -3032,7 +2838,6 @@ function openReport(
 
                 }
 
-
                 .footer{
 
                     margin-top:30px;
@@ -3045,68 +2850,35 @@ function openReport(
 
                 }
 
-
                 @media print{
 
                     body{
-
                         padding:0;
-
                     }
-
 
                     .print-btn{
-
                         display:none;
-
-                    }
-
-
-                    .summary-box{
-
-                        break-inside:avoid;
-
-                    }
-
-
-                    table{
-
-                        font-size:12px;
-
                     }
 
                 }
 
-
                 @media(max-width:700px){
 
                     body{
-
                         padding:10px;
-
                     }
-
 
                     .summary{
-
-                        grid-template-columns:
-                            1fr;
-
+                        grid-template-columns:1fr;
                     }
-
 
                     table{
-
                         font-size:11px;
-
                     }
-
 
                     th,
                     td{
-
                         padding:7px 4px;
-
                     }
 
                 }
@@ -3177,1018 +2949,4 @@ function openReport(
                     </div>
 
 
-                    <div class="summary-box">
-
-                        إجمالي الإيرادات
-
-                        <strong>
-                            ${totalRevenue}
-                            جنيه
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>
-                                اسم العميل
-                            </th>
-
-                            <th>
-                                التاريخ
-                            </th>
-
-                            <th>
-                                وقت البداية
-                            </th>
-
-                            <th>
-                                وقت النهاية
-                            </th>
-
-                            <th>
-                                المدة
-                            </th>
-
-                            <th>
-                                السعر
-                            </th>
-
-                            <th>
-                                الحالة
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        ${
-                            reportRows ||
-                            emptyRow
-                        }
-
-                    </tbody>
-
-                </table>
-
-
-                <button
-                    class="print-btn"
-                    onclick="window.print()"
-                >
-                    🖨️ طباعة التقرير
-                </button>
-
-
-                <div class="footer">
-
-                    تم إنشاء التقرير من لوحة مالك
-                    ملعب العزيمة 14
-
-                </div>
-
-            </div>
-
-        </body>
-
-        </html>
-
-    `);
-
-
-    reportWindow.document.close();
-
-}
-
-
-// ============================================================
-// REPORT BUTTONS
-// ============================================================
-
-const dailyReportBtn =
-    document.getElementById(
-        "dailyReportBtn"
-    );
-
-
-const weeklyReportBtn =
-    document.getElementById(
-        "weeklyReportBtn"
-    );
-
-
-const monthlyReportBtn =
-    document.getElementById(
-        "monthlyReportBtn"
-    );
-
-
-if(dailyReportBtn){
-
-    dailyReportBtn.addEventListener(
-        "click",
-        () => {
-
-            openReport(
-                "daily"
-            );
-
-        }
-    );
-
-}
-
-
-if(weeklyReportBtn){
-
-    weeklyReportBtn.addEventListener(
-        "click",
-        () => {
-
-            openReport(
-                "weekly"
-            );
-
-        }
-    );
-
-}
-
-
-if(monthlyReportBtn){
-
-    monthlyReportBtn.addEventListener(
-        "click",
-        () => {
-
-            openReport(
-                "monthly"
-            );
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// ESCAPE HTML
-// ============================================================
-
-function escapeHTML(
-    value
-){
-
-    return String(
-        value ?? ""
-    )
-    .replace(
-        /&/g,
-        "&amp;"
-    )
-    .replace(
-        /</g,
-        "&lt;"
-    )
-    .replace(
-        />/g,
-        "&gt;"
-    )
-    .replace(
-        /"/g,
-        "&quot;"
-    )
-    .replace(
-        /'/g,
-        "&#039;"
-    );
-
-}
-
-
-// ============================================================
-// INIT DASHBOARD
-// ============================================================
-
-let dashboardInitialized =
-    false;
-
-
-async function initDashboard(){
-
-    if(
-        dashboardInitialized
-    ){
-
-        return;
-
-    }
-
-
-    dashboardInitialized =
-        true;
-
-
-    const adminDateElement =
-        document.getElementById(
-            "adminDate"
-        );
-
-
-    if(adminDateElement){
-
-        adminDateElement.value =
-            localISODate();
-
-    }
-
-
-    const settingsLoaded =
-        await loadSettings();
-
-
-    if(!settingsLoaded){
-
-        dashboardInitialized =
-            false;
-
-        return;
-
-    }
-
-
-    const dayPriceElement =
-        document.getElementById(
-            "dayPrice"
-        );
-
-
-    const nightPriceElement =
-        document.getElementById(
-            "nightPrice"
-        );
-
-
-    const ownerOneElement =
-        document.getElementById(
-            "ownerOne"
-        );
-
-
-    const ownerTwoElement =
-        document.getElementById(
-            "ownerTwo"
-        );
-
-
-    if(dayPriceElement){
-
-        dayPriceElement.value =
-            settings.dayPrice;
-
-    }
-
-
-    if(nightPriceElement){
-
-        nightPriceElement.value =
-            settings.nightPrice;
-
-    }
-
-
-    if(ownerOneElement){
-
-        ownerOneElement.value =
-            settings.ownerOne;
-
-    }
-
-
-    if(ownerTwoElement){
-
-        ownerTwoElement.value =
-            settings.ownerTwo;
-
-    }
-
-
-    const bookingsLoaded =
-        await loadBookings();
-
-
-    if(!bookingsLoaded){
-
-        dashboardInitialized =
-            false;
-
-        return;
-
-    }
-
-
-    await render();
-
-}
-
-
-// ============================================================
-// DATE CHANGE
-// ============================================================
-
-const adminDate =
-    document.getElementById(
-        "adminDate"
-    );
-
-
-if(adminDate){
-
-    adminDate.addEventListener(
-        "change",
-        render
-    );
-
-}
-
-
-// ============================================================
-// START
-// ============================================================
-
-checkSession();
-
-// ============================================================
-// USER MANAGEMENT
-// ============================================================
-
-
-async function adminUsersRequest(
-    action,
-    extra = {}
-){
-
-    const {
-        data: {
-            session
-        }
-    } =
-        await supabaseClient
-            .auth
-            .getSession();
-
-
-    if(!session){
-
-        throw new Error(
-            "انتهت جلسة تسجيل الدخول."
-        );
-
-    }
-
-
-    const response =
-        await fetch(
-            `${SUPABASE_URL}/functions/v1/admin-users`,
-            {
-
-                method:"POST",
-
-                headers:{
-
-                    "Content-Type":
-                        "application/json",
-
-                    "Authorization":
-                        `Bearer ${session.access_token}`
-
-                },
-
-                body:JSON.stringify({
-
-                    action,
-
-                    ...extra
-
-                })
-
-            }
-        );
-
-
-    const result =
-        await response.json();
-
-
-    if(!response.ok){
-
-        throw new Error(
-            result.error ||
-            "حدث خطأ."
-        );
-
-    }
-
-
-    return result;
-
-}
-
-
-// ============================================================
-// LOAD USERS
-// ============================================================
-
-async function loadAdminUsers(){
-
-    const list =
-        document.getElementById(
-            "usersList"
-        );
-
-
-    if(!list)
-        return;
-
-
-    list.innerHTML =
-        `<p class="muted">
-            جاري تحميل المستخدمين...
-        </p>`;
-
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-            .from("admin_users")
-            .select(`
-                id,
-                username,
-                role,
-                active,
-                created_at,
-                auth_user_id
-            `)
-            .order(
-                "created_at",
-                {
-                    ascending:true
-                }
-            );
-
-
-    if(error){
-
-        console.error(error);
-
-
-        list.innerHTML =
-            `<p class="error">
-                ${escapeHTML(
-                    error.message
-                )}
-            </p>`;
-
-
-        return;
-
-    }
-
-
-    list.innerHTML = "";
-
-
-    if(!data || !data.length){
-
-        list.innerHTML =
-            `<p class="muted">
-                لا يوجد مستخدمون.
-            </p>`;
-
-
-        return;
-
-    }
-
-
-    data.forEach(
-        user => {
-
-            const item =
-                document.createElement(
-                    "div"
-                );
-
-
-            item.className =
-                "user-item";
-
-
-            const isCurrent =
-                currentAdmin &&
-                user.id ===
-                currentAdmin.id;
-
-
-            item.innerHTML = `
-
-                <strong>
-                    👤
-                    ${escapeHTML(
-                        user.username
-                    )}
-                </strong>
-
-
-                <span
-                    class="user-role"
-                >
-
-                    ${
-                        user.role ===
-                        "owner"
-
-                        ?
-
-                        "👑 مالك"
-
-                        :
-
-                        "🛡️ مدير"
-
-                    }
-
-                </span>
-
-
-                <span
-                    class="user-status"
-                >
-
-                    ${
-                        user.active
-
-                        ?
-
-                        "🟢 نشط"
-
-                        :
-
-                        "🔴 معطل"
-
-                    }
-
-                </span>
-
-
-                ${
-                    isCurrent
-
-                    ?
-
-                    `
-                    <span>
-                        حسابك الحالي
-                    </span>
-                    `
-
-                    :
-
-                    ""
-
-                }
-
-
-                ${
-                    !isCurrent
-
-                    ?
-
-                    `
-
-                    <div
-                        class="user-actions"
-                    >
-
-                        <button
-                            class="toggle-btn"
-                            data-action="toggle"
-                            data-id="${user.id}"
-                        >
-
-                            ${
-                                user.active
-                                ?
-                                "🔴 تعطيل"
-                                :
-                                "🟢 تفعيل"
-                            }
-
-                        </button>
-
-
-                        <button
-                            class="password-btn"
-                            data-action="password"
-                            data-id="${user.id}"
-                        >
-
-                            🔑 تغيير كلمة المرور
-
-                        </button>
-
-
-                        <button
-                            class="delete-btn"
-                            data-action="delete"
-                            data-id="${user.id}"
-                        >
-
-                            🗑️ حذف
-
-                        </button>
-
-                    </div>
-
-                    `
-
-                    :
-
-                    ""
-
-                }
-
-            `;
-
-
-            item
-                .querySelectorAll(
-                    "button"
-                )
-                .forEach(
-                    button => {
-
-                        button.addEventListener(
-                            "click",
-                            async () => {
-
-                                const action =
-                                    button.dataset.action;
-
-                                const id =
-                                    button.dataset.id;
-
-
-                                if(
-                                    action ===
-                                    "toggle"
-                                ){
-
-                                    await toggleAdminUser(
-                                        id
-                                    );
-
-                                }
-
-
-                                if(
-                                    action ===
-                                    "password"
-                                ){
-
-                                    await changeAdminPassword(
-                                        id,
-                                        user.username
-                                    );
-
-                                }
-
-
-                                if(
-                                    action ===
-                                    "delete"
-                                ){
-
-                                    await deleteAdminUser(
-                                        id,
-                                        user.username
-                                    );
-
-                                }
-
-                            }
-                        );
-
-                    }
-                );
-
-
-            list.appendChild(
-                item
-            );
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// CREATE USER
-// ============================================================
-
-async function createAdminUser(){
-
-    const usernameElement =
-        document.getElementById(
-            "newUsername"
-        );
-
-
-    const passwordElement =
-        document.getElementById(
-            "newPassword"
-        );
-
-
-    const roleElement =
-        document.getElementById(
-            "newRole"
-        );
-
-
-    const username =
-        usernameElement.value
-            .trim()
-            .toLowerCase();
-
-
-    const password =
-        passwordElement.value;
-
-
-    const role =
-        roleElement.value;
-
-
-    if(!username){
-
-        show(
-            "usersMessage",
-            "اكتب اسم المستخدم.",
-            true
-        );
-
-        return;
-
-    }
-
-
-    if(!password){
-
-        show(
-            "usersMessage",
-            "اكتب كلمة المرور.",
-            true
-        );
-
-        return;
-
-    }
-
-
-    if(
-        password.length <
-        6
-    ){
-
-        show(
-            "usersMessage",
-            "كلمة المرور يجب أن تكون 6 أحرف على الأقل.",
-            true
-        );
-
-        return;
-
-    }
-
-
-    try{
-
-        show(
-            "usersMessage",
-            "جاري إنشاء المستخدم..."
-        );
-
-
-        await adminUsersRequest(
-            "create",
-            {
-                username,
-                password,
-                role
-            }
-        );
-
-
-        usernameElement.value =
-            "";
-
-        passwordElement.value =
-            "";
-
-
-        show(
-            "usersMessage",
-            "تم إنشاء المستخدم بنجاح ✅"
-        );
-
-
-        await loadAdminUsers();
-
-    }
-
-    catch(error){
-
-        console.error(error);
-
-
-        show(
-            "usersMessage",
-            error.message,
-            true
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// TOGGLE
-// ============================================================
-
-async function toggleAdminUser(
-    userId
-){
-
-    try{
-
-        await adminUsersRequest(
-            "toggle",
-            {
-                userId
-            }
-        );
-
-
-        await loadAdminUsers();
-
-    }
-
-    catch(error){
-
-        alert(
-            error.message
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// CHANGE PASSWORD
-// ============================================================
-
-async function changeAdminPassword(
-    userId,
-    username
-){
-
-    const password =
-        prompt(
-            `اكتب كلمة المرور الجديدة للمستخدم: ${username}`
-        );
-
-
-    if(password === null)
-        return;
-
-
-    if(
-        password.length <
-        6
-    ){
-
-        alert(
-            "كلمة المرور يجب أن تكون 6 أحرف على الأقل."
-        );
-
-        return;
-
-    }
-
-
-    try{
-
-        await adminUsersRequest(
-            "password",
-            {
-                userId,
-                password
-            }
-        );
-
-
-        alert(
-            "تم تغيير كلمة المرور بنجاح ✅"
-        );
-
-    }
-
-    catch(error){
-
-        alert(
-            error.message
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// DELETE
-// ============================================================
-
-async function deleteAdminUser(
-    userId,
-    username
-){
-
-    const confirmed =
-        confirm(
-            `هل أنت متأكد من حذف المستخدم "${username}"؟\n\nلن يستطيع تسجيل الدخول بعد الحذف.`
-        );
-
-
-    if(!confirmed)
-        return;
-
-
-    try{
-
-        await adminUsersRequest(
-            "delete",
-            {
-                userId
-            }
-        );
-
-
-        await loadAdminUsers();
-
-
-        show(
-            "usersMessage",
-            "تم حذف المستخدم بنجاح ✅"
-        );
-
-    }
-
-    catch(error){
-
-        alert(
-            error.message
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// CREATE BUTTON
-// ============================================================
-
-document
-    .getElementById(
-        "createUserBtn"
-    )
-    ?.addEventListener(
-        "click",
-        createAdminUser
-    );
+                    <div class="summary-b
