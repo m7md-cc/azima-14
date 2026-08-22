@@ -18,406 +18,59 @@ const supabaseClient =
         SUPABASE_KEY
     );
 
-
-// ================= ADMIN UID =================
-
-const ADMIN_UID =
-    "43cc0f62-8855-4567-bd73-ac7a553ce53b";
-
-
-// ================= DEFAULT SETTINGS =================
-
-const defaultSettings = {
-
-    dayPrice: 70,
-    nightPrice: 80,
-    nightStart: "19:30",
-    open: "17:00",
-    close: "01:00",
-    ownerOne: "201116733739",
-    ownerTwo: ""
-
-};
-
-
-let settings = {
-    ...defaultSettings
-};
-
-
-// ================= STATE =================
-
-let bookings = [];
-
-
-// ================= ELEMENTS =================
-
-const loginPanel =
-    document.getElementById("loginPanel");
-
-const dashboard =
-    document.getElementById("dashboard");
-
-const loginBtn =
-    document.getElementById("loginBtn");
-
-const logoutBtn =
-    document.getElementById("logoutBtn");
-
-
-// ================= YEAR =================
-
-const year =
-    document.getElementById("year");
-
-if(year){
-
-    year.textContent =
-        new Date().getFullYear();
-
-}
-
-
-// ============================================================
-// HELPERS
-// ============================================================
-
-function pad(n){
-
-    return String(n)
-        .padStart(2, "0");
-
-}
-
-
-function localISODate(
-    d = new Date()
-){
-
-    return `${d.getFullYear()}-${pad(
-        d.getMonth() + 1
-    )}-${pad(
-        d.getDate()
-    )}`;
-
-}
-
-
-function futureDate(days){
-
-    const d =
-        new Date();
-
-    d.setDate(
-        d.getDate() + days
-    );
-
-    return localISODate(d);
-
-}
-
-
-function timeToMinutes(time){
-
-    if(!time)
-        return 0;
-
-    const [
-        h,
-        m
-    ] =
-        String(time)
-        .substring(0, 5)
-        .split(":")
-        .map(Number);
-
-    return (
-        (h || 0) * 60 +
-        (m || 0)
-    );
-
-}
-
-
-function minutesToTime(minutes){
-
-    minutes =
-        ((minutes % 1440) + 1440) % 1440;
-
-    const h =
-        Math.floor(
-            minutes / 60
-        );
-
-    const m =
-        minutes % 60;
-
-    const suffix =
-        h < 12
-            ? "ص"
-            : "م";
-
-    const hh =
-        h % 12 || 12;
-
-    return `${hh}:${pad(m)} ${suffix}`;
-
-}
-
-
-function dateLabel(value){
-
-    if(!value)
-        return "";
-
-    return new Intl.DateTimeFormat(
-        "ar-EG",
-        {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric"
-        }
-    ).format(
-        new Date(
-            value + "T12:00:00"
-        )
-    );
-
-}
-
-
-function endTime(
-    start,
-    duration
-){
-
-    let result =
-        timeToMinutes(start) +
-        Number(duration);
-
-    result =
-        result % 1440;
-
-    return `${pad(
-        Math.floor(result / 60)
-    )}:${pad(
-        result % 60
-    )}`;
-
-}
-
-
-function normalize(minutes){
-
-    return minutes < 300
-        ?
-        minutes + 1440
-        :
-        minutes;
-
-}
-
-
-function overlap(
-    aStart,
-    aEnd,
-    bStart,
-    bEnd
-){
-
-    let aS =
-        normalize(
-            timeToMinutes(aStart)
-        );
-
-    let aE =
-        normalize(
-            timeToMinutes(aEnd)
-        );
-
-    let bS =
-        normalize(
-            timeToMinutes(bStart)
-        );
-
-    let bE =
-        normalize(
-            timeToMinutes(bEnd)
-        );
-
-    if(aE <= aS)
-        aE += 1440;
-
-    if(bE <= bS)
-        bE += 1440;
-
-    return (
-        aS < bE &&
-        bS < aE
-    );
-
-}
-
-
-function makeSlots(){
-
-    const slots = [];
-
-    const open =
-        timeToMinutes(
-            settings.open
-        );
-
-    const close =
-        timeToMinutes(
-            settings.close
-        );
-
-
-    for(
-        let m = open;
-        m < 1440;
-        m += 60
-    ){
-
-        slots.push(
-            `${pad(
-                Math.floor(m / 60)
-            )}:${pad(
-                m % 60
-            )}`
-        );
-
-    }
-
-
-    for(
-        let m = 0;
-        m < close;
-        m += 60
-    ){
-
-        slots.push(
-            `${pad(
-                Math.floor(m / 60)
-            )}:${pad(
-                m % 60
-            )}`
-        );
-
-    }
-
-
-    return slots;
-
-}
-
-
-// ============================================================
-// WEEKLY BOOKING
-// ============================================================
-
-function affects(
-    booking,
-    date
-){
-
-    if(
-        booking.booking_date === date
-    ){
-
-        return true;
-
-    }
-
-
-    if(
-        booking.booking_type === "weekly" &&
-        booking.booking_date < date
-    ){
-
-        const start =
-            new Date(
-                booking.booking_date +
-                "T12:00:00"
-            );
-
-        const target =
-            new Date(
-                date +
-                "T12:00:00"
-            );
-
-        const difference =
-            Math.round(
-                (
-                    target -
-                    start
-                ) /
-                86400000
-            );
-
-        return (
-
-            difference > 0 &&
-
-            difference % 7 === 0 &&
-
-            (
-                !booking.weekly_end_date ||
-                date <=
-                booking.weekly_end_date
-            )
-
-        );
-
-    }
-
-
-    return false;
-
-}
-
-
-// ============================================================
-// MESSAGE
-// ============================================================
-
-function show(
-    id,
-    text,
-    error = false
-){
-
-    const element =
-        document.getElementById(id);
-
-    if(!element)
-        return;
-
-    element.textContent =
-        text;
-
-    element.classList.remove(
-        "hidden",
-        "error"
-    );
-
-    if(error){
-
-        element.classList.add(
-            "error"
-        );
-
-    }
-
-}
-
-
 // ============================================================
 // AUTH
 // ============================================================
+
+// Auth UID الحقيقي لحساب admin في Supabase Auth
+const ADMIN_AUTH_UID =
+    "7c8d6e93-89a3-46e9-a997-05192cea77b5";
+
+let currentAdmin = null;
+
+
+// ================= GET USER PROFILE =================
+
+async function getAdminProfile(authUserId){
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient
+            .from("admin_users")
+            .select(`
+                id,
+                username,
+                role,
+                active,
+                auth_user_id
+            `)
+            .eq(
+                "auth_user_id",
+                authUserId
+            )
+            .maybeSingle();
+
+
+    if(error){
+
+        console.error(
+            "Admin profile error:",
+            error
+        );
+
+        return null;
+
+    }
+
+
+    return data;
+
+}
+
+
+// ================= CHECK SESSION =================
 
 async function checkSession(){
 
@@ -429,16 +82,21 @@ async function checkSession(){
             .auth
             .getSession();
 
+
     if(error){
 
         console.error(error);
+
+        showLogin();
 
         return false;
 
     }
 
+
     const session =
         data.session;
+
 
     if(!session){
 
@@ -448,10 +106,14 @@ async function checkSession(){
 
     }
 
-    if(
-        session.user.id !==
-        ADMIN_UID
-    ){
+
+    const profile =
+        await getAdminProfile(
+            session.user.id
+        );
+
+
+    if(!profile){
 
         await supabaseClient
             .auth
@@ -461,7 +123,7 @@ async function checkSession(){
 
         show(
             "loginMessage",
-            "هذا الحساب ليس حساب المالك.",
+            "الحساب غير مسجل في لوحة الإدارة.",
             true
         );
 
@@ -469,12 +131,38 @@ async function checkSession(){
 
     }
 
+
+    if(!profile.active){
+
+        await supabaseClient
+            .auth
+            .signOut();
+
+        showLogin();
+
+        show(
+            "loginMessage",
+            "هذا الحساب معطل حاليًا.",
+            true
+        );
+
+        return false;
+
+    }
+
+
+    currentAdmin =
+        profile;
+
+
     showDashboard();
 
     return true;
 
 }
 
+
+// ================= SHOW LOGIN =================
 
 function showLogin(){
 
@@ -491,6 +179,8 @@ function showLogin(){
 }
 
 
+// ================= SHOW DASHBOARD =================
+
 function showDashboard(){
 
     if(loginPanel)
@@ -506,12 +196,15 @@ function showDashboard(){
 }
 
 
+// ================= LOGIN =================
+
 async function login(){
 
-    const emailElement =
+    const usernameElement =
         document.getElementById(
-            "adminEmail"
+            "adminUsername"
         );
+
 
     const passwordElement =
         document.getElementById(
@@ -519,10 +212,13 @@ async function login(){
         );
 
 
-    if(!emailElement || !passwordElement){
+    if(
+        !usernameElement ||
+        !passwordElement
+    ){
 
         console.error(
-            "Admin email/password fields not found."
+            "Username/password fields not found."
         );
 
         return;
@@ -530,18 +226,22 @@ async function login(){
     }
 
 
-    const email =
-        emailElement.value.trim();
+    const username =
+        usernameElement
+            .value
+            .trim()
+            .toLowerCase();
+
 
     const password =
         passwordElement.value;
 
 
-    if(!email){
+    if(!username){
 
         show(
             "loginMessage",
-            "اكتب البريد الإلكتروني.",
+            "اكتب اسم المستخدم.",
             true
         );
 
@@ -569,6 +269,24 @@ async function login(){
     );
 
 
+    /*
+        نحن نستخدم نظامًا داخليًا للإيميلات:
+
+        admin
+        ↓
+        admin@azima.local
+
+        ahmed
+        ↓
+        ahmed@azima.local
+
+        المستخدم يرى Username فقط.
+    */
+
+    const email =
+        `${username}@azima.local`;
+
+
     const {
         data,
         error
@@ -576,8 +294,10 @@ async function login(){
         await supabaseClient
             .auth
             .signInWithPassword({
+
                 email,
                 password
+
             });
 
 
@@ -587,8 +307,7 @@ async function login(){
 
         show(
             "loginMessage",
-            "فشل تسجيل الدخول: " +
-            error.message,
+            "اسم المستخدم أو كلمة المرور غير صحيحة.",
             true
         );
 
@@ -597,10 +316,26 @@ async function login(){
     }
 
 
-    if(
-        !data.user ||
-        data.user.id !== ADMIN_UID
-    ){
+    if(!data.user){
+
+        show(
+            "loginMessage",
+            "تعذر تسجيل الدخول.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    const profile =
+        await getAdminProfile(
+            data.user.id
+        );
+
+
+    if(!profile){
 
         await supabaseClient
             .auth
@@ -608,7 +343,7 @@ async function login(){
 
         show(
             "loginMessage",
-            "هذا الحساب ليس حساب المالك.",
+            "هذا الحساب غير مسجل في لوحة الإدارة.",
             true
         );
 
@@ -617,12 +352,36 @@ async function login(){
     }
 
 
+    if(!profile.active){
+
+        await supabaseClient
+            .auth
+            .signOut();
+
+        show(
+            "loginMessage",
+            "هذا الحساب معطل حاليًا.",
+            true
+        );
+
+        return;
+
+    }
+
+
+    currentAdmin =
+        profile;
+
+
     showDashboard();
+
 
     await initDashboard();
 
 }
 
+
+// ================= LOGOUT =================
 
 async function logout(){
 
@@ -630,10 +389,14 @@ async function logout(){
         .auth
         .signOut();
 
+    currentAdmin = null;
+
     location.reload();
 
 }
 
+
+// ================= LOGIN BUTTON =================
 
 if(loginBtn){
 
@@ -645,6 +408,8 @@ if(loginBtn){
 }
 
 
+// ================= LOGOUT BUTTON =================
+
 if(logoutBtn){
 
     logoutBtn.addEventListener(
@@ -655,10 +420,38 @@ if(logoutBtn){
 }
 
 
+// ================= ENTER KEY =================
+
+const adminUsername =
+    document.getElementById(
+        "adminUsername"
+    );
+
+
 const adminPassword =
     document.getElementById(
         "adminPassword"
     );
+
+
+if(adminUsername){
+
+    adminUsername.addEventListener(
+        "keydown",
+        event => {
+
+            if(
+                event.key === "Enter"
+            ){
+
+                login();
+
+            }
+
+        }
+    );
+
+}
 
 
 if(adminPassword){
@@ -679,6 +472,59 @@ if(adminPassword){
     );
 
 }
+
+
+// ============================================================
+// AUTH STATE
+// ============================================================
+
+supabaseClient
+    .auth
+    .onAuthStateChange(
+        async (
+            event,
+            session
+        ) => {
+
+            if(!session){
+
+                showLogin();
+
+                return;
+
+            }
+
+
+            const profile =
+                await getAdminProfile(
+                    session.user.id
+                );
+
+
+            if(
+                !profile ||
+                !profile.active
+            ){
+
+                await supabaseClient
+                    .auth
+                    .signOut();
+
+                showLogin();
+
+                return;
+
+            }
+
+
+            currentAdmin =
+                profile;
+
+
+            showDashboard();
+
+        }
+    );
 
 
 // ============================================================
